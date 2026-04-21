@@ -32,6 +32,10 @@ class Settings:
             token = os.getenv("VERCEL_BLOB_READ_WRITE_TOKEN")
             
         if not token:
+            # Vercel's default environment variable name
+            token = os.getenv("BLOB_READ_WRITE_TOKEN")
+            
+        if not token:
              raise ValueError("VERCEL_BLOB_API_TOKEN environment variable is not set")
             
         return cls(
