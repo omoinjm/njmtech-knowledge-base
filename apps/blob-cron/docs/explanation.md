@@ -1,0 +1,3 @@
+This project uses poetry for dependency management, which uses `pyproject.toml` and `poetry.lock` files to manage dependencies. A `requirements.txt` file is not strictly necessary for this project, as `poetry` handles the dependency resolution and installation.
+
+If you need a `requirements.txt` file for specific reasons (e.g., deployment environments that don't use poetry), you can generate one from your `poetry.lock` file using a tool like `poetry export`. However, for the current setup, it is not required.

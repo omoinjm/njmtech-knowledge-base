@@ -1,0 +1,1 @@
+* * * * * root /app/scripts/run_cron.sh >> /var/log/cron.log 2>&1

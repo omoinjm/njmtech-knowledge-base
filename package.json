@@ -1,0 +1,27 @@
+{
+  "name": "njmtech-knowledge-base",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "nx": "nx",
+    "build:all": "nx run-many --target=build --all",
+    "test:all": "nx run-many --target=test --all",
+    "lint:all": "nx run-many --target=lint --all",
+    "start:media": "nx serve media",
+    "start:upload": "nx serve upload-blob",
+    "start:yt": "nx serve yt-transcribe"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.32.1",
+  "devDependencies": {
+    "nx": "22.6.5",
+    "@nx/eslint": "22.6.5",
+    "@nx/playwright": "22.6.5",
+    "@nx/next": "22.6.5",
+    "@nx/docker": "22.6.5",
+    "@nx/js": "22.6.5"
+  }
+}

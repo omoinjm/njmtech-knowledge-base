@@ -1,0 +1,54 @@
+services:
+  upload-blob:
+    build:
+      context: .
+      dockerfile: apps/upload-blob/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - environments/upload-blob.env
+    networks:
+      - njmtech-network
+    restart: always
+
+  media:
+    build:
+      context: .
+      dockerfile: apps/media/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - environments/media.env
+    networks:
+      - njmtech-network
+    restart: always
+    depends_on:
+      - upload-blob
+
+  yt-transcribe:
+    build:
+      context: .
+      dockerfile: apps/yt-transcribe/Dockerfile
+    env_file:
+      - environments/yt-transcribe.env
+    networks:
+      - njmtech-network
+    restart: always
+    depends_on:
+      - upload-blob
+
+  blob-cron:
+    build:
+      context: .
+      dockerfile: apps/blob-cron/Dockerfile
+    env_file:
+      - environments/blob-cron.env
+    networks:
+      - njmtech-network
+    restart: always
+    depends_on:
+      - upload-blob
+
+networks:
+  njmtech-network:
+    driver: bridge

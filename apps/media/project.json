@@ -1,0 +1,49 @@
+{
+  "name": "media",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/media/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/next:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "root": "apps/media",
+        "outputPath": "dist/apps/media"
+      },
+      "configurations": {
+        "development": {
+          "outputPath": "apps/media/.next"
+        },
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/next:server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "media:build",
+        "dev": true,
+        "turbo": true,
+        "envFile": "environments/media.env"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "media:build:development",
+          "dev": true
+        },
+        "production": {
+          "buildTarget": "media:build:production",
+          "dev": false
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["apps/media/**/*.{ts,tsx,js,jsx}"]
+      }
+    }
+  }
+}
