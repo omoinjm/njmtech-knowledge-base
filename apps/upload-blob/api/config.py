@@ -36,10 +36,10 @@ class Settings:
             token = os.getenv("BLOB_READ_WRITE_TOKEN")
             
         if not token:
-             raise ValueError("VERCEL_BLOB_API_TOKEN environment variable is not set")
+             print("WARNING: VERCEL_BLOB_API_TOKEN environment variable is not set. Blob operations will fail.")
             
         return cls(
-            VERCEL_BLOB_API_TOKEN=token,
+            VERCEL_BLOB_API_TOKEN=token or "",
             REDIS_URL=os.getenv("REDIS_URL"),
             CRON_SECRET=os.getenv("CRON_SECRET"),
             CACHE_TTL=int(os.getenv("CACHE_TTL", "86400")),

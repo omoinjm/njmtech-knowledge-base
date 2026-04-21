@@ -42,15 +42,16 @@ class BlobStorageService:
         self, filename: str, contents: bytes, blob_path: str, allow_overwrite: bool = False
     ) -> tuple[str, str]:
         sanitized_filename = secure_filename(filename)
-        prefix = self.settings.BLOB_PREFIX
+        prefix = self.settings.BLOB_PREFIX.rstrip("/")
+        clean_blob_path = blob_path.strip("/")
 
         # Check if the filename already has a markdown extension
         if sanitized_filename.lower().endswith((".md", ".markdown")):
             # Save without appending .txt
-            path = f"{prefix}{blob_path}/{sanitized_filename}"
+            path = f"{prefix}/{clean_blob_path}/{sanitized_filename}"
         else:
             # Maintain existing logic for all other files
-            path = f"{prefix}{blob_path}/{sanitized_filename}.txt"
+            path = f"{prefix}/{clean_blob_path}/{sanitized_filename}.txt"
 
         # Explicitly pass the token to vercel_blob.put if possible, 
         # but vercel_blob usually uses the environment variable.
