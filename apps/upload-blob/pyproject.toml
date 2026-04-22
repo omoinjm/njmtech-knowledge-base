@@ -11,5 +11,6 @@ dependencies = [
   "vercel-blob",
   "python-multipart",
   "pydantic",
-  "Werkzeug"
+  "Werkzeug",
+  "infisicalsdk"
 ]

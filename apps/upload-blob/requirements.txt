@@ -6,4 +6,4 @@ python-multipart
 pydantic
 Werkzeug
 redis
-infisical-python-sdk
+infisicalsdk
