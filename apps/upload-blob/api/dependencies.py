@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .config import settings, Settings
 from .exceptions import CustomException
@@ -7,11 +7,17 @@ security = HTTPBearer()
 
 from .services.blob_storage import BlobStorageService
 
-def get_settings() -> Settings:
-    """Provides access to application settings."""
+async def get_settings(request: Request) -> Settings:
+    """
+    Provides access to application settings.
+    If running in Cloudflare, it loads settings from the request scope's env.
+    """
+    env = request.scope.get("env")
+    if env:
+        return Settings.load(env_source=env)
     return settings
 
-def get_blob_service(config: Settings = Depends(get_settings)) -> BlobStorageService:
+async def get_blob_service(config: Settings = Depends(get_settings)) -> BlobStorageService:
     """Provides access to the blob storage service."""
     return BlobStorageService(config)
 

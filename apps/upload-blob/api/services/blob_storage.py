@@ -53,10 +53,13 @@ class BlobStorageService:
             # Maintain existing logic for all other files
             path = f"{prefix}/{clean_blob_path}/{sanitized_filename}.txt"
 
-        # Explicitly pass the token to vercel_blob.put if possible, 
-        # but vercel_blob usually uses the environment variable.
-        # We've already centralized it in config, which loads it into environ.
-        blob_result = vercel_blob.put(path, contents, {"allowOverwrite": allow_overwrite})
+        # Explicitly pass the token to vercel_blob.put to ensure it works
+        # even if the environment variable is not set (e.g., in some Workers environments).
+        options = {
+            "allowOverwrite": allow_overwrite,
+            "token": self.settings.VERCEL_BLOB_API_TOKEN
+        }
+        blob_result = vercel_blob.put(path, contents, options)
 
         # Invalidate cache on new upload
         self.invalidate_cache()
@@ -69,8 +72,11 @@ class BlobStorageService:
         if cached_data is not None:
             return cached_data
 
-        # Wrap the prefix in an options dictionary
-        options = {"prefix": self.settings.BLOB_PREFIX}
+        # Wrap the prefix and token in an options dictionary
+        options = {
+            "prefix": self.settings.BLOB_PREFIX,
+            "token": self.settings.VERCEL_BLOB_API_TOKEN
+        }
         result = vercel_blob.list(options)
 
         # Access the list of blobs from the result
@@ -123,7 +129,8 @@ class BlobStorageService:
         This saves one Advanced Operation by avoiding the list() call.
         """
         try:
-            vercel_blob.delete(url)
+            options = {"token": self.settings.VERCEL_BLOB_API_TOKEN}
+            vercel_blob.delete(url, options)
             self.invalidate_cache()
             return True
         except Exception:

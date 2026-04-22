@@ -8,7 +8,7 @@ router = APIRouter(tags=["Vercel Blob"])
 
 
 @router.get("/", summary="Root endpoint")
-def read_root():
+async def read_root():
     """Returns a simple welcome message."""
     return JSONResponse(
         status_code=200, content={"message": "Welcome to the Vercel Blob API"}
@@ -44,7 +44,7 @@ async def delete_blob(
 
 @router.post("/upload", dependencies=[Depends(verify_token)], summary="Upload a file")
 async def upload(
-    blob_path: str = Query(..., description="The directory path in blob storage"),
+    blob_path: str = Query("uploads", description="The directory path in blob storage"),
     allow_overwrite: bool = Query(
         False, description="Whether to allow overwriting existing files"
     ),

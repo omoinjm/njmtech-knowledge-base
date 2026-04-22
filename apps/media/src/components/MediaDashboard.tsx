@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useTransition, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Network } from "lucide-react";
+import dynamic from "next/dynamic";
 import AddUrlBar from "@/components/AddUrlBar";
 import MediaCard from "@/components/MediaCard";
 import PublicModeSettings from "@/components/PublicModeSettings";
@@ -28,6 +29,21 @@ import {
 import { storeBrowserBlob } from "@/lib/browser-blob-storage";
 import { getNotesProviderLabel, getTranscribeProviderLabel } from "@/lib/guest-config";
 
+const GraphView = dynamic(() => import("@/components/GraphView/GraphView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[calc(100vh-250px)] w-full items-center justify-center rounded-xl border border-border bg-background/50">
+      <div className="flex flex-col items-center gap-2">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-xs text-muted-foreground">Loading graph...</p>
+      </div>
+    </div>
+  ),
+});
+
+const VIEW_MODE_KEY = "njmtech_view_mode";
+type ViewMode = "grid" | "graph";
+
 const POLL_INTERVAL_MS = 4000;
 const POLL_MAX_ATTEMPTS = 15;
 
@@ -49,6 +65,7 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("All");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const pollingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const items = mode === "personal" ? personalItems : publicItems;
@@ -76,6 +93,17 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
     },
     [updatePersonalItem]
   );
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem(VIEW_MODE_KEY) as ViewMode;
+    if (savedMode && (savedMode === "grid" || savedMode === "graph")) {
+      setViewMode(savedMode);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     if (mode === "public") {
@@ -318,7 +346,7 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
   }, [activeTab, tabs]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <motion.header
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -334,9 +362,37 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
               njmtech<span className="text-primary">.media</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            {mode === "public" && <PublicModeSettings onConfigChange={handleConfigChange} />}
-            <span className="hidden text-xs text-muted-foreground sm:block">{items.length} items</span>
+          <div className="flex items-center gap-4">
+            {/* View Mode Toggle */}
+            <div className="flex items-center rounded-lg border border-border bg-background/50 p-1 shadow-sm">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`flex h-8 w-8 items-center justify-center rounded-md transition-all ${
+                  viewMode === "grid"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+                aria-label="Grid View"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode("graph")}
+                className={`flex h-8 w-8 items-center justify-center rounded-md transition-all ${
+                  viewMode === "graph"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+                aria-label="Graph View"
+              >
+                <Network size={16} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {mode === "public" && <PublicModeSettings onConfigChange={handleConfigChange} />}
+              <span className="hidden text-xs text-muted-foreground sm:block">{items.length} items</span>
+            </div>
           </div>
         </div>
       </motion.header>
@@ -418,54 +474,73 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
 
       <main className="mx-auto max-w-7xl px-6 pb-16">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={`${mode}-${activeTab}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.25 }}
-          >
-            {filteredItems.length === 0 ? (
-              <div className="py-16 text-center">
-                {mode === "public" && !hasSavedConfig ? (
-                  <div className="space-y-4">
+          {viewMode === "grid" ? (
+            <motion.div
+              key={`${mode}-${activeTab}-grid`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
+            >
+              {filteredItems.length === 0 ? (
+                <div className="py-16 text-center">
+                  {mode === "public" && !hasSavedConfig ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Welcome to Public mode! This dashboard stores media locally in your browser.
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        <strong>Transcripts & Notes:</strong> Optional. Set up API credentials in settings to generate transcripts and AI notes.
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        <strong>View-only:</strong> You can add media and manage them without any setup.
+                      </p>
+                    </div>
+                  ) : (
                     <p className="text-sm text-muted-foreground">
-                      Welcome to Public mode! This dashboard stores media locally in your browser.
+                      {mode === "public" ? "No public items saved in this browser yet." : "No items in this category yet."}
                     </p>
-                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                      <strong>Transcripts & Notes:</strong> Optional. Set up API credentials in settings to generate transcripts and AI notes.
-                    </p>
-                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                      <strong>View-only:</strong> You can add media and manage them without any setup.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {mode === "public" ? "No public items saved in this browser yet." : "No items in this category yet."}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
-              >
-                {filteredItems.map((item, index) => (
-                  <MediaCard
-                    key={item.id}
-                    item={item}
-                     index={index}
-                     onCategorize={handleCategorize}
-                     onDelete={handleDelete}
-                     onGenerateTranscript={mode === "public" ? handleGenerateTranscript : undefined}
-                     onGenerateNotes={mode === "public" ? handleGenerateNotes : undefined}
-                   />
-                 ))}
-              </motion.div>
-            )}
-          </motion.div>
+                  )}
+                </div>
+              ) : (
+                <motion.div
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {filteredItems.map((item, index) => (
+                    <MediaCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onCategorize={handleCategorize}
+                      onDelete={handleDelete}
+                      onGenerateTranscript={mode === "public" ? handleGenerateTranscript : undefined}
+                      onGenerateNotes={mode === "public" ? handleGenerateNotes : undefined}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key={`${mode}-${activeTab}-graph`}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.02 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <GraphView
+                items={filteredItems}
+                onCategorize={handleCategorize}
+                onDelete={handleDelete}
+                onGenerateTranscript={mode === "public" ? handleGenerateTranscript : undefined}
+                onGenerateNotes={mode === "public" ? handleGenerateNotes : undefined}
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
     </div>

@@ -16,36 +16,48 @@ class Settings:
     BLOB_PREFIX: str = "njmtech-blob-api/"
 
     @classmethod
-    def load(cls) -> "Settings":
-        """Load settings from environment variables."""
-        load_dotenv()
-        load_secrets()
+    def load(cls, env_source=None) -> "Settings":
+        """
+        Load settings. Infisical is the source of truth.
+        """
+        # 1. Load local .env for bootstrapping Infisical credentials if needed
+        if env_source is None:
+            load_dotenv()
         
-        token = os.getenv("VERCEL_BLOB_API_TOKEN")
-        if not token:
-            # Fallback to API_TOKEN for backward compatibility if needed, 
-            # but prefer VERCEL_BLOB_API_TOKEN
-            token = os.getenv("API_TOKEN")
+        # 2. Fetch all other variables from Infisical (injects into os.environ or env_source)
+        load_secrets(env_source)
+            
+        def get_env(key, default=None):
+            # Check env_source (Cloudflare Worker env) first
+            if env_source and hasattr(env_source, key):
+                return getattr(env_source, key)
+            if env_source and isinstance(env_source, dict) and key in env_source:
+                return env_source[key]
+            # Fallback to os.environ (where Infisical injected them)
+            return os.getenv(key, default)
         
-        if not token:
-            # Check for API_TOKEN in case it was renamed earlier but still used
-            token = os.getenv("VERCEL_BLOB_READ_WRITE_TOKEN")
+        # Standardize on VERCEL_BLOB_API_TOKEN as the primary key
+        token = get_env("VERCEL_BLOB_API_TOKEN")
+        # or \
+        #        get_env("BLOB_READ_WRITE_TOKEN") or \
+        #        get_env("VERCEL_BLOB_READ_WRITE_TOKEN") or \
+        #        get_env("API_TOKEN")
             
-        if not token:
-            # Vercel's default environment variable name
-            token = os.getenv("BLOB_READ_WRITE_TOKEN")
-            
-        if not token:
-             print("WARNING: VERCEL_BLOB_API_TOKEN environment variable is not set. Blob operations will fail.")
+        if not token and not env_source:
+             print("WARNING: VERCEL_BLOB_API_TOKEN not found in Infisical or environment.")
             
         return cls(
-            VERCEL_BLOB_API_TOKEN=token or "",
-            REDIS_URL=os.getenv("REDIS_URL"),
-            CRON_SECRET=os.getenv("CRON_SECRET"),
-            CACHE_TTL=int(os.getenv("CACHE_TTL", "86400")),
-            BLOB_PREFIX=os.getenv("BLOB_PREFIX", "njmtech-blob-api/")
+            VERCEL_BLOB_API_TOKEN=token,
+            REDIS_URL=get_env("REDIS_URL"),
+            CRON_SECRET=get_env("CRON_SECRET"),
+            CACHE_TTL=int(get_env("CACHE_TTL", "86400")),
+            BLOB_PREFIX=get_env("BLOB_PREFIX", "njmtech-blob-api/")
         )
 
-# Global settings instance (acting as a singleton)
-settings = Settings.load()
+# Global settings instance for non-request contexts
+try:
+    settings = Settings.load()
+except Exception:
+    settings = Settings(VERCEL_BLOB_API_TOKEN="")
+
 API_TOKEN = settings.VERCEL_BLOB_API_TOKEN

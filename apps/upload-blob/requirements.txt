@@ -1,9 +1,0 @@
-fastapi[standard]
-uvicorn
-python-dotenv
-vercel-blob
-python-multipart
-pydantic
-Werkzeug
-redis
-infisicalsdk

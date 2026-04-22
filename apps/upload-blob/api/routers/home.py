@@ -11,7 +11,7 @@ async def health_check():
 
 
 @router.get("/", response_class=HTMLResponse, summary="Home page")
-def read_root():
+async def read_root():
     """Returns the landing page HTML."""
     return """
     <!DOCTYPE html>

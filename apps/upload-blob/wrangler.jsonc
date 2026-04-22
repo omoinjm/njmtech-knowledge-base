@@ -1,0 +1,16 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "njmtech-upload-blob",
+	"main": "worker.py",
+	"compatibility_date": "2025-11-02",
+	"compatibility_flags": [
+		"python_workers",
+		"python_dedicated_snapshot"
+	],
+	"vars": {
+		"BLOB_PREFIX": "njmtech-blob-api/"
+	},
+	"observability": {
+		"enabled": true
+	}
+}
