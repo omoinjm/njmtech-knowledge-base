@@ -38,7 +38,8 @@ def load_secrets():
 
         secrets = client.secrets.list_secrets(
             project_id=project_id,
-            environment=environment,
+            environment_slug=environment,
+            secret_path="/",  
             expand_secret_references=True
         )
 
