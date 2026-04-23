@@ -61,18 +61,30 @@ export default function GraphView({
   const [highlightNodes, setHighlightNodes] = useState(new Set<string>());
   const [highlightLinks, setHighlightLinks] = useState(new Set<GraphLink>());
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [showTags, setShowTags] = useState(false);
+  const [showTagsByZoom, setShowTagsByZoom] = useState(false);
   
+  const [tagsEnabled, setTagsEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem('njmtech_show_tags');
+    return stored === null ? true : stored === 'true';
+  });
+
+  // Persist on change:
+  useEffect(() => {
+    localStorage.setItem('njmtech_show_tags', String(tagsEnabled));
+  }, [tagsEnabled]);
+
   const zoomLevelRef = useRef(1);
   const hasInitiallyFit = useRef(false);
 
-  // Progressive Disclosure: Filter graph data based on zoom level
+  // Progressive Disclosure: Filter graph data based on zoom level and toggle
   const { nodes, links } = useMemo(() => {
+    const showTags = tagsEnabled && showTagsByZoom; // both must be true
     return {
       nodes: allNodes.filter(n => n.type !== 'tag' || showTags),
       links: allLinks.filter(l => l.type !== 'media-tag' || showTags)
     };
-  }, [allNodes, allLinks, showTags]);
+  }, [allNodes, allLinks, showTagsByZoom, tagsEnabled]);
 
   // Force Configuration for Cluster Islands
   useEffect(() => {
@@ -154,7 +166,7 @@ export default function GraphView({
 
     // Initial nudge to simulation
     fg.d3ReheatSimulation();
-  }, [allNodes, allLinks, showTags]);
+  }, [allNodes, allLinks, showTagsByZoom, tagsEnabled]);
 
   // Star Background
   const stars = useRef<{ x: number; y: number; opacity: number }[]>([]);
@@ -229,6 +241,9 @@ export default function GraphView({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPopupNode(null);
+      if (e.key.toLowerCase() === "t" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        setTagsEnabled(prev => !prev);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -323,7 +338,7 @@ export default function GraphView({
     }
   }, []);
 
-  const drawTagNode = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number, opacity: number) => {
+  const drawTagNode = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number, opacity: number, tagsEnabled: boolean) => {
     const { name } = node;
     const baseRadius = 14;
     let drawRadius = baseRadius;
@@ -335,7 +350,8 @@ export default function GraphView({
       ctx.beginPath();
       ctx.arc(0, 0, drawRadius, 0, 2 * Math.PI);
       ctx.fillStyle = COSMIC_COLORS.neonEmerald;
-      ctx.globalAlpha = 0.8 * opacity;
+      ctx.globalAlpha = 0.8 * opacity * (tagsEnabled ? 1 : 0);
+      if (ctx.globalAlpha <= 0) return;
       ctx.fill();
       return;
     }
@@ -347,7 +363,11 @@ export default function GraphView({
     const height = 22;
 
     // Progressive Fade-in for tags
-    const fadeProgress = Math.min(1, (globalScale - TAG_ZOOM_THRESHOLD) / 0.2);
+    const fadeProgress = tagsEnabled 
+      ? Math.min(1, (globalScale - TAG_ZOOM_THRESHOLD) / 0.2)
+      : 0;
+
+    if (fadeProgress <= 0) return;
 
     ctx.save();
     ctx.globalAlpha = fadeProgress * opacity;
@@ -441,7 +461,7 @@ export default function GraphView({
     ctx.translate(node.x, node.y);
 
     if (node.type === "media") drawMediaNode(node, ctx, globalScale, opacity);
-    else if (node.type === "tag") drawTagNode(node, ctx, globalScale, opacity);
+    else if (node.type === "tag") drawTagNode(node, ctx, globalScale, opacity, tagsEnabled);
     else if (node.type === "category") drawCategoryNode(node, ctx, globalScale, opacity);
 
     if (hoverNode?.id === node.id && globalScale > 0.5) {
@@ -454,7 +474,7 @@ export default function GraphView({
     }
 
     ctx.restore();
-  }, [drawMediaNode, drawTagNode, drawCategoryNode, highlightNodes, hoverNode]);
+  }, [drawMediaNode, drawTagNode, drawCategoryNode, highlightNodes, hoverNode, tagsEnabled]);
 
   const onRenderFramePre = useCallback((ctx: CanvasRenderingContext2D) => {
     const { width, height } = ctx.canvas;
@@ -582,9 +602,30 @@ export default function GraphView({
               <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#00ff88]" />
               <span>Media Item</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-2.5 rounded-sm border-2 border-emerald-400" />
-              <span>Topic Tag</span>
+            <div 
+              className="flex items-center gap-2 cursor-pointer select-none group"
+              onClick={() => setTagsEnabled(prev => !prev)}
+              title={tagsEnabled ? 'Hide topic tags' : 'Show topic tags'}
+            >
+              <div className={`h-2.5 w-2.5 rounded-sm border-2 border-emerald-400 transition-opacity ${
+                tagsEnabled ? 'opacity-100' : 'opacity-30'
+              }`} />
+              <span className={`transition-all ${
+                tagsEnabled
+                  ? 'text-white/80'
+                  : 'text-white/30 line-through'
+              }`}>
+                Topic Tag
+              </span>
+              
+              {/* Toggle pill */}
+              <div className={`ml-auto w-7 h-4 rounded-full transition-colors duration-200 flex items-center px-0.5 ${
+                tagsEnabled ? 'bg-emerald-500/40' : 'bg-white/10'
+              }`}>
+                <div className={`w-3 h-3 rounded-full bg-emerald-400 transition-transform duration-200 ${
+                  tagsEnabled ? 'translate-x-3' : 'translate-x-0'
+                }`} />
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full border-2 border-emerald-400 relative">
@@ -612,8 +653,8 @@ export default function GraphView({
         onZoom={({ k }) => {
           zoomLevelRef.current = k;
           const shouldShow = k >= TAG_ZOOM_THRESHOLD;
-          if (shouldShow !== showTags) {
-            setShowTags(shouldShow);
+          if (shouldShow !== showTagsByZoom) {
+            setShowTagsByZoom(shouldShow);
           }
         }}
         backgroundColor={COSMIC_COLORS.bgEdge}

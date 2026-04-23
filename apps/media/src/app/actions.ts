@@ -697,3 +697,95 @@ export async function unlockPersonalRoute(
     return { success: false, error: "Failed to verify access key" };
   }
 }
+
+export async function generateTranscriptQuestions(
+  transcriptText: string,
+  title: string
+): Promise<string[]> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return [];
+
+  try {
+    const prompt = `You are analyzing a video transcript. Generate exactly 4 short, curious question pills — the kind a viewer would naturally want answered after watching.
+
+Video title: "${title}"
+
+Transcript (first 2000 chars):
+${transcriptText.slice(0, 2000)}
+
+Rules:
+- Each question must be under 60 characters
+- Questions should be specific to THIS content, not generic
+- Vary the question types: one factual, one opinion/analysis, one practical, one broader context
+- Return ONLY a JSON array of 4 strings, no markdown, no preamble
+
+Example format: ["Why does X matter?", "How does Y work exactly?", "What should I do with Z?", "Is this approach better than W?"]`;
+
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 200,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content ?? '[]';
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    return Array.isArray(parsed) ? parsed.slice(0, 4) : [];
+  } catch (err) {
+    console.error("[generateTranscriptQuestions]", err);
+    return [];
+  }
+}
+
+export async function answerTranscriptQuestion(
+  question: string,
+  transcriptText: string,
+  title: string
+): Promise<string> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return 'Unable to generate an answer (token missing).';
+
+  try {
+    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a helpful assistant answering questions about a video called "${title}". Answer concisely in 2-4 sentences using only information from the transcript. If the answer isn't in the transcript, say so briefly.`
+          },
+          {
+            role: 'user',
+            content: `Transcript:\n${transcriptText.slice(0, 4000)}\n\nQuestion: ${question}`
+          }
+        ],
+        max_tokens: 200,
+        temperature: 0.4
+      })
+    });
+
+    if (!response.ok) return 'Unable to generate an answer (API error).';
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content ?? 'Unable to generate an answer.';
+  } catch (err) {
+    console.error("[answerTranscriptQuestion]", err);
+    return 'Failed to get an answer.';
+  }
+}
+

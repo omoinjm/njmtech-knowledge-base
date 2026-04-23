@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { motion, type Variants } from "framer-motion";
-import { ExternalLink, FileText, BookText, Sparkles, Loader2, Play, Trash2, X, StickyNote } from "lucide-react";
+import { ExternalLink, FileText, BookText, Sparkles, Loader2, Play, Trash2, X, StickyNote, ChevronUp } from "lucide-react";
 import { useState, useTransition } from "react";
+import { AnimatePresence } from "framer-motion";
 import type { MediaItem } from "@/lib/mock-data";
 import { PlatformIcon } from "./PlatformIcon";
+import { AIPanel } from "./shared/AIPanel";
 
 interface MediaCardProps {
   item: MediaItem;
@@ -45,6 +47,7 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
   const [isPending, startTransition] = useTransition();
   const [playing, setPlaying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   const embedUrl = getEmbedUrl(item.platform, item.videoId);
   const canEmbed = embedUrl !== null;
@@ -110,7 +113,9 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
     <motion.div
       variants={cardVariants}
       whileHover={{ y: playing ? 0 : -4, transition: { duration: 0.2 } }}
-      className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-glow)]"
+      className={`group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-glow)] ${
+        aiPanelOpen ? 'row-span-2' : ''
+      }`}
     >
       {/* Thumbnail / Player */}
       <div className="relative aspect-video overflow-hidden bg-black">
@@ -210,6 +215,22 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
           </a>
 
           <div className="flex items-center gap-1.5">
+            {/* Ask AI button — only when transcript and notes exist */}
+            {item.transcriptUrl && item.notesUrl && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setAiPanelOpen(prev => !prev)}
+                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all ${
+                  aiPanelOpen
+                    ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                <Sparkles size={13} />
+                {aiPanelOpen ? "Hide" : "Ask AI"}
+              </motion.button>
+            )}
+
             {/* Categorize button — only when transcript exists and not yet categorized */}
             {item.transcriptUrl && !item.category && (
               <motion.button
@@ -287,6 +308,38 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
         </div>
         {actionError && <p className="text-xs text-destructive">{actionError}</p>}
       </div>
+
+      <AnimatePresence>
+        {aiPanelOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mx-4 border-t border-emerald-500/15" />
+            
+            <AIPanel
+              transcriptUrl={item.transcriptUrl}
+              notesUrl={item.notesUrl}
+              videoUrl={item.url}
+              title={item.title}
+              enabled={aiPanelOpen}
+              variant="card"
+            />
+
+            {/* Panel-specific Footer Actions */}
+            <div className="px-4 pb-4 flex justify-end gap-2">
+              <a href={item.url} target="_blank" rel="noopener noreferrer">
+                <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-colors">
+                  <Play size={11} fill="currentColor" /> Watch Video
+                </button>
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

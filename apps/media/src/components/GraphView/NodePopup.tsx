@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { FileText, Play, X, ExternalLink } from "lucide-react";
+import React, { useEffect, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FileText, Play, X, ChevronUp, Sparkles, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import Image from "next/image";
 import { GraphNode } from "./useGraphData";
+import { AIPanel } from "@/components/shared/AIPanel";
 
 interface NodePopupProps {
   node: GraphNode;
@@ -26,35 +27,19 @@ export const NodePopup: React.FC<NodePopupProps> = ({
   containerWidth,
   containerHeight,
 }) => {
-  const [notesContent, setNotesContent] = useState<string | null>(null);
-  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const item = node.item;
 
-  useEffect(() => {
-    if (!item?.notesUrl) {
-      setNotesContent(null);
-      return;
-    }
-
-    setIsLoadingNotes(true);
-    fetch(item.notesUrl)
-      .then((r) => r.text())
-      .then((text) => {
-        setNotesContent(text.slice(0, 300));
-        setIsLoadingNotes(false);
-      })
-      .catch(() => {
-        setNotesContent(null);
-        setIsLoadingNotes(false);
-      });
-  }, [item?.notesUrl]);
-
   if (!item) return null;
+
+  const handleTranscriptToggle = () => {
+    setPanelOpen(prev => !prev);
+  };
 
   const POPUP_WIDTH = 320;
   // Basic overflow check
   const finalX = screenX + POPUP_WIDTH > containerWidth ? screenX - POPUP_WIDTH - 40 : screenX;
-  const finalY = screenY + 250 > containerHeight ? screenY - 260 : screenY;
+  const finalY = screenY + 400 > containerHeight ? Math.max(10, containerHeight - 530) : screenY;
 
   return (
     <motion.div
@@ -66,10 +51,10 @@ export const NodePopup: React.FC<NodePopupProps> = ({
         left: finalX,
         top: finalY,
       }}
-      className="fixed z-50 w-[320px] rounded-xl border border-emerald-500/25 bg-[#050a0e]/95 p-0 shadow-[0_0_30px_rgba(0,255,136,0.1)] backdrop-blur-xl overflow-hidden"
+      className="fixed z-50 w-[320px] max-h-[520px] flex flex-col rounded-xl border border-emerald-500/25 bg-[#050a0e]/95 p-0 shadow-[0_0_30px_rgba(0,255,136,0.1)] backdrop-blur-xl overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-start gap-3 p-4 bg-emerald-500/5">
+      {/* Header - fixed height */}
+      <div className="shrink-0 flex items-start gap-3 p-4 bg-emerald-500/5">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-emerald-500/20 bg-black">
           {item.thumbnailUrl ? (
             <Image
@@ -109,43 +94,60 @@ export const NodePopup: React.FC<NodePopupProps> = ({
         </div>
       </div>
 
-      {/* Content / Notes Preview */}
-      <div className="px-4 py-3 border-t border-emerald-500/10">
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/60 mb-2">
-          Notes Preview
-        </h4>
-        <div className="max-h-[120px] overflow-hidden text-ellipsis prose prose-invert prose-sm text-[12px] leading-relaxed text-white/80">
-          {isLoadingNotes ? (
-            <div className="space-y-2 animate-pulse">
-              <div className="h-3 w-full bg-emerald-500/10 rounded" />
-              <div className="h-3 w-4/5 bg-emerald-500/10 rounded" />
-            </div>
-          ) : notesContent ? (
-            <ReactMarkdown>
-              {notesContent + (notesContent.length >= 300 ? "..." : "")}
-            </ReactMarkdown>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        <AnimatePresence>
+          {panelOpen ? (
+            <motion.div
+              key="ai-panel-wrapper"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <AIPanel
+                transcriptUrl={item.transcriptUrl}
+                notesUrl={item.notesUrl}
+                videoUrl={item.url}
+                title={item.title}
+                enabled={panelOpen}
+                variant="popup"
+              />
+            </motion.div>
           ) : (
-            <span className="text-[12px] text-white/40 italic">
-              No notes available
-            </span>
+            <motion.div
+              key="notes-preview-only"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="px-4 py-3 border-t border-emerald-500/10"
+            >
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/60 mb-2">
+                Notes Preview
+              </h4>
+              <div className="text-ellipsis prose prose-invert prose-sm text-[12px] leading-relaxed text-white/80">
+                <NotesPreview notesUrl={item.notesUrl} />
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
 
-      {/* Footer Actions */}
-      <div className="flex items-center justify-between gap-2 p-3 bg-black/40 border-t border-emerald-500/10">
+      {/* Footer Actions - fixed */}
+      <div className="shrink-0 flex items-center justify-between gap-2 p-3 bg-black/40 border-t border-emerald-500/10">
         <div className="flex gap-2">
-          {item.transcriptUrl && (
+          {item.transcriptUrl && item.notesUrl && (
             <Button
               variant="outline"
               size="sm"
-              asChild
-              className="h-8 border-emerald-500/30 bg-transparent text-[11px] text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+              onClick={handleTranscriptToggle}
+              className={`h-8 border-emerald-500/30 text-[11px] transition-colors ${
+                panelOpen
+                  ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/50'
+                  : 'text-emerald-400/70 bg-transparent hover:bg-emerald-500/10 hover:text-emerald-300'
+              }`}
             >
-              <a href={item.transcriptUrl} target="_blank" rel="noopener noreferrer">
-                <FileText size={12} className="mr-1.5" />
-                Transcript
-              </a>
+              {panelOpen ? <ChevronUp size={12} className="mr-1.5" /> : <Sparkles size={12} className="mr-1.5" />}
+              {panelOpen ? 'Hide' : 'Ask AI'}
             </Button>
           )}
         </div>
@@ -163,3 +165,40 @@ export const NodePopup: React.FC<NodePopupProps> = ({
     </motion.div>
   );
 };
+
+// Helper component for simple notes preview when AI panel is closed
+const NotesPreview: React.FC<{ notesUrl: string | null }> = ({ notesUrl }) => {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!notesUrl) return;
+    setLoading(true);
+    fetch(notesUrl)
+      .then(r => r.text())
+      .then(text => {
+        setContent(text.slice(0, 300));
+        setLoading(false);
+      })
+      .catch(() => {
+        setContent(null);
+        setLoading(false);
+      });
+  }, [notesUrl]);
+
+  if (loading) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        <div className="h-3 w-full bg-emerald-500/10 rounded" />
+        <div className="h-3 w-4/5 bg-emerald-500/10 rounded" />
+      </div>
+    );
+  }
+
+  return content ? (
+    <ReactMarkdown>{content + (content.length >= 300 ? "..." : "")}</ReactMarkdown>
+  ) : (
+    <span className="text-[12px] text-white/40 italic">No notes available</span>
+  );
+};
+
