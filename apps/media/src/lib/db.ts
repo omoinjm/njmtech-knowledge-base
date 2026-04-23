@@ -99,7 +99,7 @@ let _sql: ReturnType<typeof neon> | null = null;
 function getSql(): ReturnType<typeof neon> {
   if (!_sql) {
     const url = env.databaseUrl;
-    if (!url) throw new Error("POSTGRES_URL environment variable is not set");
+    if (!url) throw new Error("Database connection URL is not configured. Please set POSTGRES_URL or DATABASE_URL.");
     _sql = neon(url);
   }
   return _sql;
