@@ -43,10 +43,10 @@ export async function hasPersonalAccessConfigured(): Promise<boolean> {
   try {
     return await dbHasPersonalAccessKey();
   } catch (err) {
-    // If it's a database error, we want to know about it in the logs
-    console.error("[hasPersonalAccessConfigured] Error checking key configuration. This might be due to a missing POSTGRES_URL or a connection issue:", err);
-    // We still return false to show the setup gate, but the log will now reveal the true cause.
-    return false;
+    console.error("[hasPersonalAccessConfigured] Database error while checking key configuration:", err);
+    // Re-throw so that Next.js treats this as a 500 error rather than a "no key" state.
+    // This prevents showing the setup screen when the DB is actually just unreachable.
+    throw err;
   }
 }
 
