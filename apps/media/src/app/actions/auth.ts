@@ -40,7 +40,12 @@ async function grantPersonalAccess(): Promise<void> {
  * @returns True if configured
  */
 export async function hasPersonalAccessConfigured(): Promise<boolean> {
-  return dbHasPersonalAccessKey();
+  try {
+    return await dbHasPersonalAccessKey();
+  } catch (err) {
+    console.error("[hasPersonalAccessConfigured] Failed to check key config:", err);
+    return false;
+  }
 }
 
 /**

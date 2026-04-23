@@ -17,11 +17,11 @@ function requireEnv(key: string): string {
 
 /**
  * Validated environment configuration.
- * All variables exported here are guaranteed to exist.
+ * All variables exported here are guaranteed to exist at the time of access.
  */
 export const env = {
   /** GitHub personal access token for AI Models API */
-  githubToken: requireEnv("GITHUB_TOKEN"),
+  get githubToken() { return requireEnv("GITHUB_TOKEN"); },
   /** Connection string for the Neon database */
-  databaseUrl: requireEnv("POSTGRES_URL"),
+  get databaseUrl() { return requireEnv("POSTGRES_URL"); },
 } as const;

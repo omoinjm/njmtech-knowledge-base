@@ -21,7 +21,14 @@ import type { ActionResponse, AddMediaResult } from "@/types/api";
  * @returns Array of media items
  */
 export const getMediaItems = unstable_cache(
-  async (): Promise<MediaItem[]> => dbGetMediaItems(),
+  async (): Promise<MediaItem[]> => {
+    try {
+      return await dbGetMediaItems();
+    } catch (err) {
+      console.error("[getMediaItems] Failed to fetch media items from DB:", err);
+      return [];
+    }
+  },
   ["media-items"],
   { tags: ["media"], revalidate: 60 }
 );
