@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { motion, type Variants } from "framer-motion";
-import { ExternalLink, FileText, BookText, Sparkles, Loader2, Play, Trash2, X, StickyNote, ChevronUp } from "lucide-react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { ExternalLink, FileText, BookOpen, Sparkles, Loader2, Play, Trash2, X, ChevronUp, StickyNote } from "lucide-react";
 import { useState, useTransition } from "react";
-import { AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 import type { MediaItem } from "@/lib/mock-data";
 import { PlatformIcon } from "./PlatformIcon";
 import { AIPanel } from "./shared/AIPanel";
+import { parseTranscript } from "@/lib/parseTranscript";
 
 interface MediaCardProps {
   item: MediaItem;
@@ -48,6 +49,14 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
   const [playing, setPlaying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [transcriptContent, setTranscriptContent] = useState<string | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesContent, setNotesContent] = useState<string | null>(null);
+  const [notesLoading, setNotesLoading] = useState(false);
 
   const embedUrl = getEmbedUrl(item.platform, item.videoId);
   const canEmbed = embedUrl !== null;
@@ -109,16 +118,48 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
     });
   };
 
+  const handleTranscriptClick = async () => {
+    if (!transcriptOpen && transcriptContent === null) {
+      setTranscriptLoading(true);
+      try {
+        const res = await fetch(item.transcriptUrl!);
+        const text = await res.text();
+        setTranscriptContent(text);
+      } catch {
+        setTranscriptContent('Failed to load transcript.');
+      } finally {
+        setTranscriptLoading(false);
+      }
+    }
+    setTranscriptOpen(prev => !prev);
+  };
+
+  const handleNotesClick = async () => {
+    if (!notesOpen && notesContent === null) {
+      setNotesLoading(true);
+      try {
+        const res = await fetch(item.notesUrl!);
+        const text = await res.text();
+        setNotesContent(text);
+      } catch {
+        setNotesContent('Failed to load notes.');
+      } finally {
+        setNotesLoading(false);
+      }
+    }
+    setNotesOpen(prev => !prev);
+  };
+
   return (
     <motion.div
       variants={cardVariants}
       whileHover={{ y: playing ? 0 : -4, transition: { duration: 0.2 } }}
-      className={`group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-glow)] ${
-        aiPanelOpen ? 'row-span-2' : ''
+      className={`group relative flex flex-col min-h-[280px] overflow-hidden rounded-xl border border-white/8 bg-white/3 transition-all duration-300 hover:border-primary/30 hover:shadow-[var(--shadow-glow)] ${
+        aiPanelOpen || transcriptOpen || notesOpen ? 'row-span-2' : ''
       }`}
     >
       {/* Thumbnail / Player */}
-      <div className="relative aspect-video overflow-hidden bg-black">
+      <div className="relative aspect-video shrink-0 overflow-hidden bg-black">
         {playing && embedUrl ? (
           <>
             <iframe
@@ -178,7 +219,7 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
         )}
       </div>
 
-      {/* Content */}
+      {/* Content / Body */}
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
           <h3 className="font-heading text-sm font-semibold leading-snug text-foreground line-clamp-2">
@@ -202,114 +243,13 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
             ))}
           </div>
         )}
-
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ExternalLink size={13} />
-            Original
-          </a>
-
-          <div className="flex items-center gap-1.5">
-            {/* Ask AI button — only when transcript and notes exist */}
-            {item.transcriptUrl && item.notesUrl && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setAiPanelOpen(prev => !prev)}
-                className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all ${
-                  aiPanelOpen
-                    ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
-                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                <Sparkles size={13} />
-                {aiPanelOpen ? "Hide" : "Ask AI"}
-              </motion.button>
-            )}
-
-            {/* Categorize button — only when transcript exists and not yet categorized */}
-            {item.transcriptUrl && !item.category && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleCategorize}
-                disabled={isPending}
-                className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
-              >
-                {isPending ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Sparkles size={13} />
-                )}
-                {isPending ? "Analyzing…" : "Categorize"}
-              </motion.button>
-            )}
-
-            {item.transcriptUrl && (
-              <motion.a
-                whileTap={{ scale: 0.95 }}
-                href={item.transcriptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-              >
-                <FileText size={13} />
-                Transcript
-              </motion.a>
-            )}
-            {!item.transcriptUrl && onGenerateTranscript && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleGenerateTranscript}
-                disabled={isPending}
-                className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
-              >
-                {isPending ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
-                Transcript
-              </motion.button>
-            )}
-            {item.notesUrl && (
-              <motion.a
-                whileTap={{ scale: 0.95 }}
-                href={item.notesUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={`notes-${item.videoId}.md`}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110"
-              >
-                <BookText size={13} />
-                Notes
-              </motion.a>
-            )}
-            {!item.notesUrl && item.transcriptUrl && onGenerateNotes && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handleGenerateNotes}
-                disabled={isPending}
-                className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-60"
-              >
-                {isPending ? <Loader2 size={13} className="animate-spin" /> : <StickyNote size={13} />}
-                Notes
-              </motion.button>
-            )}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSoftDelete}
-              disabled={isPending}
-              className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
-            >
-              {isPending ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-              Hide
-            </motion.button>
-          </div>
-        </div>
+        
         {actionError && <p className="text-xs text-destructive">{actionError}</p>}
       </div>
 
+      {/* Accordions */}
       <AnimatePresence>
+        {/* AI Panel Accordion */}
         {aiPanelOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -319,7 +259,6 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
             className="overflow-hidden"
           >
             <div className="mx-4 border-t border-emerald-500/15" />
-            
             <AIPanel
               transcriptUrl={item.transcriptUrl}
               notesUrl={item.notesUrl}
@@ -328,7 +267,6 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
               enabled={aiPanelOpen}
               variant="card"
             />
-
             {/* Panel-specific Footer Actions */}
             <div className="px-4 pb-4 flex justify-end gap-2">
               <a href={item.url} target="_blank" rel="noopener noreferrer">
@@ -339,7 +277,166 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
             </div>
           </motion.div>
         )}
+
+        {/* Transcript Accordion */}
+        {transcriptOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mx-4 border-t border-white/8 pt-3 pb-3">
+              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">
+                Transcript
+              </p>
+
+              {transcriptLoading && (
+                <div className="space-y-1.5">
+                  {[100, 85, 90, 75].map((w, i) => (
+                    <div key={i} className="h-2.5 bg-white/5 rounded animate-pulse" style={{ width: `${w}%` }} />
+                  ))}
+                </div>
+              )}
+
+              {!transcriptLoading && transcriptContent && (
+                <div className="overflow-y-auto max-h-[220px] space-y-1 scrollbar-thin scrollbar-thumb-white/10">
+                  {parseTranscript(transcriptContent).map((line, i) => (
+                    <div key={i} className="flex gap-2 text-xs leading-relaxed">
+                      {line.timestamp && (
+                        <span className="shrink-0 font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] h-fit mt-0.5">
+                          {line.timestamp}
+                        </span>
+                      )}
+                      <span className="text-white/60">{line.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Notes Accordion */}
+        {notesOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mx-4 border-t border-white/8 pt-3 pb-3">
+              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">
+                Notes
+              </p>
+
+              {notesLoading && (
+                <div className="space-y-1.5">
+                  {[100, 80, 90, 70, 85].map((w, i) => (
+                    <div key={i} className="h-2.5 bg-white/5 rounded animate-pulse" style={{ width: `${w}%` }} />
+                  ))}
+                </div>
+              )}
+
+              {!notesLoading && notesContent && (
+                <div className="overflow-y-auto max-h-[220px] scrollbar-thin scrollbar-thumb-white/10">
+                  <div className="prose prose-invert prose-xs text-white/65 leading-relaxed">
+                    <ReactMarkdown>{notesContent}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
+
+      {/* Footer — always last */}
+      <div className="shrink-0 px-4 py-3 border-t border-white/8 flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Ask AI button — only when transcript and notes exist */}
+          {item.transcriptUrl && item.notesUrl && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setAiPanelOpen(prev => !prev)}
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+                aiPanelOpen
+                  ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
+                  : "border-emerald-500/20 text-emerald-400/50 hover:border-emerald-400/40 hover:text-emerald-300"
+              }`}
+            >
+              <Sparkles size={11} />
+              {aiPanelOpen ? "Close" : "Ask AI"}
+            </motion.button>
+          )}
+
+          {/* Transcript button */}
+          {item.transcriptUrl && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleTranscriptClick}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
+                transcriptOpen
+                  ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
+                  : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/70"
+              }`}
+            >
+              <FileText size={11} />
+              Transcript
+            </motion.button>
+          )}
+
+          {/* Notes button */}
+          {item.notesUrl && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleNotesClick}
+              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
+                notesOpen
+                  ? "bg-blue-500/20 border-blue-400/50 text-blue-300"
+                  : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/70"
+              }`}
+            >
+              <BookOpen size={11} />
+              Notes
+            </motion.button>
+          )}
+
+          {/* Generation buttons (if needed) */}
+          {!item.transcriptUrl && onGenerateTranscript && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleGenerateTranscript}
+              disabled={isPending}
+              className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+            >
+              {isPending ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />}
+              Generate Transcript
+            </motion.button>
+          )}
+          {!item.notesUrl && item.transcriptUrl && onGenerateNotes && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleGenerateNotes}
+              disabled={isPending}
+              className="flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-60"
+            >
+              {isPending ? <Loader2 size={11} className="animate-spin" /> : <StickyNote size={11} />}
+              Generate Notes
+            </motion.button>
+          )}
+        </div>
+
+        <button
+          onClick={handleSoftDelete}
+          title="Hide item"
+          disabled={isPending}
+          className="p-1.5 shrink-0 rounded-md text-white/25 hover:text-red-400/70 hover:bg-red-500/10 transition-colors disabled:opacity-60"
+        >
+          {isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+        </button>
+      </div>
     </motion.div>
   );
 };
