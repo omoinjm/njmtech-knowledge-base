@@ -1,138 +1,127 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ChevronRight, ChevronUp } from "lucide-react";
+import { Sparkles, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { parseTranscript } from "@/lib/parseTranscript";
-import { generateTranscriptQuestions, answerTranscriptQuestion } from "@/app/actions";
+import { useNotes } from "@/hooks/useNotes";
+import { useTranscript } from "@/hooks/useTranscript";
+import { useAIPills } from "@/hooks/useAIPills";
+import type { AIPanelVariant } from "@/types/ai";
+import type { VariantStyles } from "@/types/ui";
 
-interface AIPanelProps {
-  transcriptUrl: string | null;
+/**
+ * Configuration for different visual variants of the AIPanel.
+ */
+const variantConfig: Record<AIPanelVariant, VariantStyles> = {
+  card: {
+    spacing: "px-4 py-3",
+    pillTextSize: "text-xs",
+    transcriptMaxH: "max-h-[280px]",
+    answerPadding: "p-3",
+  },
+  popup: {
+    spacing: "px-4 pt-3 pb-1",
+    pillTextSize: "text-[11px]",
+    transcriptMaxH: "max-h-[200px]",
+    answerPadding: "p-2.5",
+  },
+};
+
+/**
+ * Prop interface for the AIPanel component.
+ */
+export interface AIPanelProps {
+  /** Public URL for the markdown notes file */
   notesUrl: string | null;
+  /** Public URL for the raw transcript text file */
+  transcriptUrl: string | null;
+  /** Original video URL (used for context) */
   videoUrl: string;
+  /** Video title (used for context in AI generation) */
   title: string;
+  /** Whether the panel is expanded/visible */
   enabled: boolean;
-  variant?: 'popup' | 'card';
+  /** Visual style variant */
+  variant?: AIPanelVariant;
+  /** Injected server action for generating questions */
+  onGenerateQuestions: (transcript: string, title: string) => Promise<string[]>;
+  /** Injected server action for answering a question */
+  onAnswerQuestion: (question: string, transcript: string, title: string) => Promise<string>;
 }
 
+/**
+ * AI-powered panel showing notes preview, suggested question pills,
+ * inline answers, and a collapsible raw transcript viewer.
+ *
+ * @example
+ * <AIPanel
+ *   transcriptUrl={item.transcriptUrl}
+ *   notesUrl={item.notesUrl}
+ *   videoUrl={item.url}
+ *   title={item.title}
+ *   variant="card"
+ *   enabled={isOpen}
+ *   onGenerateQuestions={generateTranscriptQuestions}
+ *   onAnswerQuestion={answerTranscriptQuestion}
+ * />
+ */
 export const AIPanel: React.FC<AIPanelProps> = ({
-  transcriptUrl,
   notesUrl,
-  videoUrl,
+  transcriptUrl,
   title,
   enabled,
-  variant = 'popup',
+  variant = "popup",
+  onGenerateQuestions,
+  onAnswerQuestion,
 }) => {
-  const [notesContent, setNotesContent] = useState<string | null>(null);
-  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
-  
+  const styles = variantConfig[variant];
+  const notesState = useNotes(notesUrl);
+  const transcriptState = useTranscript(transcriptUrl, enabled);
   const [transcriptVisible, setTranscriptVisible] = useState(false);
-  const [transcriptContent, setTranscriptContent] = useState<string | null>(null);
-  const [transcriptLoading, setTranscriptLoading] = useState(false);
 
-  const [questionPills, setQuestionPills] = useState<string[]>([]);
-  const [pillsLoading, setPillsLoading] = useState(false);
-  const [activePill, setActivePill] = useState<string | null>(null);
-  const [pillAnswer, setPillAnswer] = useState<string | null>(null);
-  const [answerLoading, setAnswerLoading] = useState(false);
-
-  // Fetch notes on mount if notesUrl exists
-  useEffect(() => {
-    if (!notesUrl) {
-      setNotesContent(null);
-      return;
-    }
-
-    setIsLoadingNotes(true);
-    fetch(notesUrl)
-      .then((r) => r.text())
-      .then((text) => {
-        setNotesContent(text.slice(0, 300));
-        setIsLoadingNotes(false);
-      })
-      .catch(() => {
-        setNotesContent(null);
-        setIsLoadingNotes(false);
-      });
-  }, [notesUrl]);
-
-  // Handle background transcript fetch and pill generation when enabled
-  useEffect(() => {
-    if (!enabled || !transcriptUrl || transcriptContent !== null) return;
-
-    const fetchTranscript = async () => {
-      setTranscriptLoading(true);
-      setPillsLoading(true);
-      try {
-        const res = await fetch(transcriptUrl);
-        const text = await res.text();
-        setTranscriptContent(text);
-
-        // Generate pills as soon as transcript is ready
-        const pills = await generateTranscriptQuestions(text, title);
-        setQuestionPills(pills);
-      } catch (err) {
-        console.error("[AIPanel] Failed to fetch transcript or pills:", err);
-        setTranscriptContent('Failed to load transcript.');
-      } finally {
-        setTranscriptLoading(false);
-        setPillsLoading(false);
-      }
-    };
-
-    fetchTranscript();
-  }, [enabled, transcriptUrl, transcriptContent, title]);
-
-  const handlePillClick = async (question: string) => {
-    if (activePill === question) {
-      setActivePill(null);
-      setPillAnswer(null);
-      return;
-    }
-    setActivePill(question);
-    setPillAnswer(null);
-    setAnswerLoading(true);
-    try {
-      const answer = await answerTranscriptQuestion(question, transcriptContent!, title);
-      setPillAnswer(answer);
-    } catch {
-      setPillAnswer('Failed to get an answer.');
-    } finally {
-      setAnswerLoading(false);
-    }
-  };
+  const {
+    questions,
+    isLoadingQuestions,
+    activeQuestion,
+    answer,
+    isLoadingAnswer,
+    handleQuestionClick,
+  } = useAIPills({
+    transcript: transcriptState.status === "success" ? transcriptState.data : null,
+    title,
+    enabled,
+    onGenerateQuestions,
+    onAnswerQuestion,
+  });
 
   const parsedLines = useMemo(() => {
-    return transcriptContent ? parseTranscript(transcriptContent) : [];
-  }, [transcriptContent]);
-
-  const spacing = variant === 'card' ? 'px-4 py-3' : 'px-4 pt-3 pb-1';
-  const pillTextSize = variant === 'card' ? 'text-xs' : 'text-[11px]';
-  const transcriptMaxH = variant === 'card' ? 'max-h-[280px]' : 'max-h-[200px]';
-  const answerPadding = variant === 'card' ? 'p-3' : 'p-2.5';
+    if (transcriptState.status === "success") {
+      return parseTranscript(transcriptState.data);
+    }
+    return [];
+  }, [transcriptState]);
 
   return (
-    <div className={spacing}>
+    <div className={styles.spacing}>
       {/* Notes Preview */}
-      <div className={`mb-4 ${variant === 'card' ? 'px-0' : ''}`}>
+      <div className="mb-4">
         <p className="text-[10px] uppercase tracking-widest text-emerald-400/50 font-semibold mb-2">
           Notes Preview
         </p>
         <div className="text-ellipsis prose prose-invert prose-sm text-[12px] leading-relaxed text-white/80">
-          {isLoadingNotes ? (
+          {notesState.status === "loading" ? (
             <div className="space-y-2 animate-pulse">
               <div className="h-3 w-full bg-emerald-500/10 rounded" />
               <div className="h-3 w-4/5 bg-emerald-500/10 rounded" />
             </div>
-          ) : notesContent ? (
+          ) : notesState.status === "success" ? (
             <ReactMarkdown>
-              {notesContent + (notesContent.length >= 300 ? "..." : "")}
+              {notesState.data.slice(0, 300) + (notesState.data.length >= 300 ? "..." : "")}
             </ReactMarkdown>
           ) : (
-            <span className="text-[12px] text-white/40 italic">
-              No notes available
-            </span>
+            <span className="text-[12px] text-white/40 italic">No notes available</span>
           )}
         </div>
       </div>
@@ -145,88 +134,93 @@ export const AIPanel: React.FC<AIPanelProps> = ({
         </span>
       </div>
 
-      {/* Pills loading skeletons */}
-      {pillsLoading && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {[88, 112, 96, 124].map((w, i) => (
+      {/* Question Pills */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {isLoadingQuestions ? (
+          [88, 112, 96, 124].map((w, i) => (
             <div
               key={i}
               className="h-6 rounded-full bg-emerald-500/10 animate-pulse"
               style={{ width: w }}
             />
-          ))}
-        </div>
-      )}
-
-      {/* Pills */}
-      {!pillsLoading && questionPills.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {questionPills.map((q) => (
+          ))
+        ) : (
+          questions.map((q) => (
             <button
               key={q}
-              onClick={() => handlePillClick(q)}
-              className={`${pillTextSize} px-2.5 py-1 rounded-full border transition-all duration-150 text-left ${
-                activePill === q
-                  ? 'bg-emerald-500/25 border-emerald-400/60 text-emerald-300'
-                  : 'bg-transparent border-emerald-500/25 text-emerald-400/70 hover:border-emerald-400/40 hover:text-emerald-300'
+              onClick={() => handleQuestionClick(q)}
+              className={`${styles.pillTextSize} px-2.5 py-1 rounded-full border transition-all duration-150 text-left ${
+                activeQuestion === q
+                  ? "bg-emerald-500/25 border-emerald-400/60 text-emerald-300"
+                  : "bg-transparent border-emerald-500/25 text-emerald-400/70 hover:border-emerald-400/40 hover:text-emerald-300"
               }`}
             >
               {q}
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
-      {/* Answer area */}
+      {/* Answer Area */}
       <AnimatePresence>
-        {(answerLoading || pillAnswer) && (
+        {(isLoadingAnswer || answer) && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+            animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.15 }}
             className="mb-3 overflow-hidden"
           >
-            {answerLoading ? (
-              <div className={`space-y-1.5 bg-emerald-500/5 rounded-lg border border-emerald-500/10 ${answerPadding}`}>
+            {isLoadingAnswer ? (
+              <div
+                className={`space-y-1.5 bg-emerald-500/5 rounded-lg border border-emerald-500/10 ${styles.answerPadding}`}
+              >
                 {[100, 80, 60].map((w, i) => (
-                  <div key={i} className="h-2.5 bg-emerald-500/10 rounded animate-pulse" style={{ width: `${w}%` }} />
+                  <div
+                    key={i}
+                    className="h-2.5 bg-emerald-500/10 rounded animate-pulse"
+                    style={{ width: `${w}%` }}
+                  />
                 ))}
               </div>
             ) : (
-              <p className={`text-xs text-white/70 leading-relaxed bg-emerald-500/5 border border-emerald-500/15 rounded-lg ${answerPadding}`}>
-                {pillAnswer}
+              <p
+                className={`text-xs text-white/70 leading-relaxed bg-emerald-500/5 border border-emerald-500/15 rounded-lg ${styles.answerPadding}`}
+              >
+                {answer}
               </p>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* View raw transcript toggle — subtle link */}
-      {transcriptContent && (
+      {/* Transcript Toggle */}
+      {transcriptState.status === "success" && (
         <button
-          onClick={() => setTranscriptVisible(prev => !prev)}
+          onClick={() => setTranscriptVisible((prev) => !prev)}
           className="flex items-center gap-1 text-[11px] text-emerald-500/40 hover:text-emerald-400/70 transition-colors mb-2"
         >
           <ChevronRight
             size={11}
-            className={`transition-transform duration-200 ${transcriptVisible ? 'rotate-90' : ''}`}
+            className={`transition-transform duration-200 ${transcriptVisible ? "rotate-90" : ""}`}
           />
-          {transcriptVisible ? 'Hide transcript' : 'View raw transcript'}
+          {transcriptVisible ? "Hide transcript" : "View raw transcript"}
         </button>
       )}
 
-      {/* Raw transcript — collapsible sub-section */}
+      {/* Raw Transcript Content */}
       <AnimatePresence>
-        {transcriptVisible && transcriptContent && (
+        {transcriptVisible && parsedLines.length > 0 && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
+            animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="overflow-hidden mb-2"
           >
-            <div className={`overflow-y-auto ${transcriptMaxH} space-y-2 border-t border-emerald-500/10 pt-3 pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20`}>
+            <div
+              className={`overflow-y-auto ${styles.transcriptMaxH} space-y-2 border-t border-emerald-500/10 pt-3 pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20`}
+            >
               {parsedLines.map((line, i) => (
                 <div key={i} className="flex gap-2 text-xs leading-relaxed group">
                   {line.timestamp && (
@@ -234,7 +228,9 @@ export const AIPanel: React.FC<AIPanelProps> = ({
                       {line.timestamp}
                     </span>
                   )}
-                  <span className="text-white/65 group-hover:text-white transition-colors">{line.text}</span>
+                  <span className="text-white/65 group-hover:text-white transition-colors">
+                    {line.text}
+                  </span>
                 </div>
               ))}
             </div>

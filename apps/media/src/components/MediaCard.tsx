@@ -2,21 +2,34 @@
 
 import Image from "next/image";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { ExternalLink, FileText, BookOpen, Sparkles, Loader2, Play, Trash2, X, ChevronUp, StickyNote } from "lucide-react";
+import { Loader2, Play, Trash2, X, FileText, BookOpen, Sparkles, StickyNote } from "lucide-react";
 import { useState, useTransition } from "react";
 import ReactMarkdown from "react-markdown";
-import type { MediaItem } from "@/lib/mock-data";
+import type { MediaItem } from "@/types/media";
 import { PlatformIcon } from "./PlatformIcon";
 import { AIPanel } from "./shared/AIPanel";
 import { parseTranscript } from "@/lib/parseTranscript";
 
-interface MediaCardProps {
+/**
+ * Prop interface for the MediaCard component.
+ */
+export interface MediaCardProps {
+  /** The media item data to display */
   item: MediaItem;
+  /** Index for staggered animation entry */
   index: number;
+  /** Callback to trigger AI categorization */
   onCategorize?: (id: string, transcriptUrl: string) => Promise<void>;
+  /** Callback to soft-delete the item */
   onDelete?: (id: string) => Promise<void>;
+  /** Callback to generate a transcript for public items */
   onGenerateTranscript?: (item: MediaItem) => Promise<void>;
+  /** Callback to generate notes for public items */
   onGenerateNotes?: (item: MediaItem) => Promise<void>;
+  /** Injected server action for AI question generation */
+  onGenerateQuestions: (transcript: string, title: string) => Promise<string[]>;
+  /** Injected server action for AI question answering */
+  onAnswerQuestion: (question: string, transcript: string, title: string) => Promise<string>;
 }
 
 const cardVariants: Variants = {
@@ -31,7 +44,7 @@ const FALLBACK_THUMBNAILS: Record<string, string> = {
   vimeo: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=640&h=360&fit=crop",
   twitter: "https://images.unsplash.com/photo-1611162616475-46b635cbca44?w=640&h=360&fit=crop",
   unknown: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=640&h=360&fit=crop",
-};
+} as const;
 
 function getEmbedUrl(platform: string, videoId: string): string | null {
   if (platform === "youtube") return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
@@ -41,10 +54,23 @@ function getEmbedUrl(platform: string, videoId: string): string | null {
   return null;
 }
 
-const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGenerateNotes }: MediaCardProps) => {
+/**
+ * A card component that displays media item information, supports inline video playback,
+ * and provides access to AI analysis tools (transcript, notes, Q&A).
+ */
+export const MediaCard: React.FC<MediaCardProps> = ({
+  item,
+  onCategorize,
+  onDelete,
+  onGenerateTranscript,
+  onGenerateNotes,
+  onGenerateQuestions,
+  onAnswerQuestion,
+}) => {
   const thumbnail = (item.thumbnailUrl && item.thumbnailUrl.trim() !== "") 
     ? item.thumbnailUrl 
-    : (FALLBACK_THUMBNAILS[item.platform] ?? FALLBACK_THUMBNAILS.unknown);
+    : (FALLBACK_THUMBNAILS[item.platform as keyof typeof FALLBACK_THUMBNAILS] ?? FALLBACK_THUMBNAILS.unknown);
+    
   const [isPending, startTransition] = useTransition();
   const [playing, setPlaying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -69,19 +95,6 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
     }
   };
 
-  const handleCategorize = () => {
-    if (!item.transcriptUrl) return;
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await onCategorize?.(item.id, item.transcriptUrl!);
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : "Failed to categorize");
-        console.error("[Categorize]", err);
-      }
-    });
-  };
-
   const handleSoftDelete = () => {
     setActionError(null);
     startTransition(async () => {
@@ -89,40 +102,15 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
         await onDelete?.(item.id);
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Failed to hide item");
-        console.error("[SoftDelete]", err);
-      }
-    });
-  };
-
-  const handleGenerateTranscript = () => {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await onGenerateTranscript?.(item);
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : "Failed to generate transcript");
-        console.error("[GenerateTranscript]", err);
-      }
-    });
-  };
-
-  const handleGenerateNotes = () => {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await onGenerateNotes?.(item);
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : "Failed to generate notes");
-        console.error("[GenerateNotes]", err);
       }
     });
   };
 
   const handleTranscriptClick = async () => {
-    if (!transcriptOpen && transcriptContent === null) {
+    if (!transcriptOpen && transcriptContent === null && item.transcriptUrl) {
       setTranscriptLoading(true);
       try {
-        const res = await fetch(item.transcriptUrl!);
+        const res = await fetch(item.transcriptUrl);
         const text = await res.text();
         setTranscriptContent(text);
       } catch {
@@ -135,10 +123,10 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
   };
 
   const handleNotesClick = async () => {
-    if (!notesOpen && notesContent === null) {
+    if (!notesOpen && notesContent === null && item.notesUrl) {
       setNotesLoading(true);
       try {
-        const res = await fetch(item.notesUrl!);
+        const res = await fetch(item.notesUrl);
         const text = await res.text();
         setNotesContent(text);
       } catch {
@@ -188,7 +176,6 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
             />
             <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-            {/* Play button overlay */}
             <button
               onClick={handlePlayClick}
               aria-label="Play video"
@@ -200,13 +187,7 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
             </button>
 
             <div className="absolute bottom-3 left-3">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Open on ${item.platform}`}
-                onClick={(e) => e.stopPropagation()}
-              >
+              <a href={item.url} target="_blank" rel="noopener noreferrer">
                 <PlatformIcon platform={item.platform} />
               </a>
             </div>
@@ -230,14 +211,10 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
           )}
         </div>
 
-        {/* Tags */}
         {item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {item.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
-              >
+              <span key={tag} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
                 {tag}
               </span>
             ))}
@@ -249,13 +226,11 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
 
       {/* Accordions */}
       <AnimatePresence>
-        {/* AI Panel Accordion */}
         {aiPanelOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
             <div className="mx-4 border-t border-emerald-500/15" />
@@ -266,49 +241,30 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
               title={item.title}
               enabled={aiPanelOpen}
               variant="card"
+              onGenerateQuestions={onGenerateQuestions}
+              onAnswerQuestion={onAnswerQuestion}
             />
-            {/* Panel-specific Footer Actions */}
-            <div className="px-4 pb-4 flex justify-end gap-2">
-              <a href={item.url} target="_blank" rel="noopener noreferrer">
-                <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 transition-colors">
-                  <Play size={11} fill="currentColor" /> Watch Video
-                </button>
-              </a>
-            </div>
           </motion.div>
         )}
 
-        {/* Transcript Accordion */}
         {transcriptOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
             <div className="mx-4 border-t border-white/8 pt-3 pb-3">
-              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">
-                Transcript
-              </p>
-
-              {transcriptLoading && (
-                <div className="space-y-1.5">
-                  {[100, 85, 90, 75].map((w, i) => (
-                    <div key={i} className="h-2.5 bg-white/5 rounded animate-pulse" style={{ width: `${w}%` }} />
-                  ))}
+              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">Transcript</p>
+              {transcriptLoading ? (
+                <div className="space-y-1.5 animate-pulse">
+                  {[100, 85, 90, 75].map((w, i) => <div key={i} className="h-2.5 bg-white/5 rounded" style={{ width: `${w}%` }} />)}
                 </div>
-              )}
-
-              {!transcriptLoading && transcriptContent && (
-                <div className="overflow-y-auto max-h-[220px] space-y-1 scrollbar-thin scrollbar-thumb-white/10">
-                  {parseTranscript(transcriptContent).map((line, i) => (
+              ) : (
+                <div className="overflow-y-auto max-h-[220px] space-y-1 scrollbar-thin">
+                  {parseTranscript(transcriptContent || "").map((line, i) => (
                     <div key={i} className="flex gap-2 text-xs leading-relaxed">
-                      {line.timestamp && (
-                        <span className="shrink-0 font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] h-fit mt-0.5">
-                          {line.timestamp}
-                        </span>
-                      )}
+                      {line.timestamp && <span className="shrink-0 font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] h-fit mt-0.5">{line.timestamp}</span>}
                       <span className="text-white/60">{line.text}</span>
                     </div>
                   ))}
@@ -318,33 +274,22 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
           </motion.div>
         )}
 
-        {/* Notes Accordion */}
         {notesOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
             <div className="mx-4 border-t border-white/8 pt-3 pb-3">
-              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">
-                Notes
-              </p>
-
-              {notesLoading && (
-                <div className="space-y-1.5">
-                  {[100, 80, 90, 70, 85].map((w, i) => (
-                    <div key={i} className="h-2.5 bg-white/5 rounded animate-pulse" style={{ width: `${w}%` }} />
-                  ))}
+              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">Notes</p>
+              {notesLoading ? (
+                <div className="space-y-1.5 animate-pulse">
+                  {[100, 80, 90, 70].map((w, i) => <div key={i} className="h-2.5 bg-white/5 rounded" style={{ width: `${w}%` }} />)}
                 </div>
-              )}
-
-              {!notesLoading && notesContent && (
-                <div className="overflow-y-auto max-h-[220px] scrollbar-thin scrollbar-thumb-white/10">
-                  <div className="prose prose-invert prose-xs text-white/65 leading-relaxed">
-                    <ReactMarkdown>{notesContent}</ReactMarkdown>
-                  </div>
+              ) : (
+                <div className="overflow-y-auto max-h-[220px] prose prose-invert prose-xs text-white/65">
+                  <ReactMarkdown>{notesContent || ""}</ReactMarkdown>
                 </div>
               )}
             </div>
@@ -352,18 +297,15 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
         )}
       </AnimatePresence>
 
-      {/* Footer — always last */}
+      {/* Footer */}
       <div className="shrink-0 px-4 py-3 border-t border-white/8 flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Ask AI button — only when transcript and notes exist */}
           {item.transcriptUrl && item.notesUrl && (
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setAiPanelOpen(prev => !prev)}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                aiPanelOpen
-                  ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
-                  : "border-emerald-500/20 text-emerald-400/50 hover:border-emerald-400/40 hover:text-emerald-300"
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all ${
+                aiPanelOpen ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300" : "border-emerald-500/20 text-emerald-400/50 hover:text-emerald-300"
               }`}
             >
               <Sparkles size={11} />
@@ -371,45 +313,36 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
             </motion.button>
           )}
 
-          {/* Transcript button */}
           {item.transcriptUrl && (
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleTranscriptClick}
               className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
-                transcriptOpen
-                  ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
-                  : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/70"
+                transcriptOpen ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300" : "border-white/10 text-white/40 hover:text-white/70"
               }`}
             >
-              <FileText size={11} />
-              Transcript
+              <FileText size={11} /> Transcript
             </motion.button>
           )}
 
-          {/* Notes button */}
           {item.notesUrl && (
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleNotesClick}
               className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
-                notesOpen
-                  ? "bg-blue-500/20 border-blue-400/50 text-blue-300"
-                  : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/70"
+                notesOpen ? "bg-blue-500/20 border-blue-400/50 text-blue-300" : "border-white/10 text-white/40 hover:text-white/70"
               }`}
             >
-              <BookOpen size={11} />
-              Notes
+              <BookOpen size={11} /> Notes
             </motion.button>
           )}
 
-          {/* Generation buttons (if needed) */}
           {!item.transcriptUrl && onGenerateTranscript && (
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={handleGenerateTranscript}
+              onClick={() => onGenerateTranscript(item)}
               disabled={isPending}
-              className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-60"
             >
               {isPending ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />}
               Generate Transcript
@@ -418,7 +351,7 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
           {!item.notesUrl && item.transcriptUrl && onGenerateNotes && (
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={handleGenerateNotes}
+              onClick={() => onGenerateNotes(item)}
               disabled={isPending}
               className="flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-60"
             >
@@ -430,9 +363,8 @@ const MediaCard = ({ item, onCategorize, onDelete, onGenerateTranscript, onGener
 
         <button
           onClick={handleSoftDelete}
-          title="Hide item"
           disabled={isPending}
-          className="p-1.5 shrink-0 rounded-md text-white/25 hover:text-red-400/70 hover:bg-red-500/10 transition-colors disabled:opacity-60"
+          className="p-1.5 rounded-md text-white/25 hover:text-red-400/70 transition-colors"
         >
           {isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
         </button>

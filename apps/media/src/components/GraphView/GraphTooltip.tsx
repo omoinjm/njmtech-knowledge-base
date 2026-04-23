@@ -1,5 +1,5 @@
 import React from "react";
-import type { GraphNode } from "./useGraphData";
+import type { GraphNode } from "@/lib/graph/types";
 
 interface GraphTooltipProps {
   node: GraphNode;

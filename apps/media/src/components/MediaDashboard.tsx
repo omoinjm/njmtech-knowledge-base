@@ -16,8 +16,10 @@ import {
   getMediaItemById,
   preparePublicMediaItem,
   softDeleteMediaItem,
+  generateTranscriptQuestions,
+  answerTranscriptQuestion,
 } from "@/app/actions";
-import type { MediaItem } from "@/lib/mock-data";
+import type { MediaItem } from "@/types/media";
 import type { GuestConfig } from "@/lib/guest-config";
 import {
   loadPublicMediaItems,
@@ -28,6 +30,8 @@ import {
 } from "@/lib/public-media-storage";
 import { storeBrowserBlob } from "@/lib/browser-blob-storage";
 import { getNotesProviderLabel, getTranscribeProviderLabel } from "@/lib/guest-config";
+
+import { useViewMode } from "@/hooks/useViewMode";
 
 const GraphView = dynamic(() => import("@/components/GraphView/GraphView"), {
   ssr: false,
@@ -40,9 +44,6 @@ const GraphView = dynamic(() => import("@/components/GraphView/GraphView"), {
     </div>
   ),
 });
-
-const VIEW_MODE_KEY = "njmtech_view_mode";
-type ViewMode = "grid" | "graph";
 
 const POLL_INTERVAL_MS = 4000;
 const POLL_MAX_ATTEMPTS = 15;
@@ -65,7 +66,7 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("All");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useViewMode("grid");
   const pollingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const items = mode === "personal" ? personalItems : publicItems;
@@ -95,17 +96,6 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
   );
 
   useEffect(() => {
-    const savedMode = localStorage.getItem(VIEW_MODE_KEY) as ViewMode;
-    if (savedMode && (savedMode === "grid" || savedMode === "graph")) {
-      setViewMode(savedMode);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(VIEW_MODE_KEY, viewMode);
-  }, [viewMode]);
-
-  useEffect(() => {
     if (mode === "public") {
       loadPublicMediaItems().then(setPublicItems);
     }
@@ -131,13 +121,14 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
       startTransition(async () => {
         if (mode === "personal") {
           const result = await addMediaItem(url);
-          if (result.success && result.item) {
+          if (result.success && result.data?.item) {
+            const item = result.data.item;
             setPersonalItems((prev) => {
-              const exists = prev.some((item) => item.id === result.item!.id);
-              return exists ? prev : [result.item!, ...prev];
+              const exists = prev.some((i) => i.id === item.id);
+              return exists ? prev : [item, ...prev];
             });
-            if (result.item.transcriptUrl && !result.item.category) {
-              pollForCategory(result.item.id);
+            if (item.transcriptUrl && !item.category) {
+              pollForCategory(item.id);
             }
           } else {
             setError(result.error ?? "Something went wrong");
@@ -146,19 +137,23 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
         }
 
         const result = await preparePublicMediaItem(url);
-        if (!result.success || !result.item) {
+        if (!result.success || !result.data?.item) {
           setError(result.error ?? "Something went wrong");
           return;
         }
 
-        const { item, items: nextItems } = await upsertPublicMediaItem(result.item);
+        const { item, items: nextItems } = await upsertPublicMediaItem(result.data.item);
         setPublicItems(nextItems);
 
         if (item.transcriptUrl && !item.category) {
           const categoryResult = await categorizeTranscriptAction(item.transcriptUrl);
-          if (categoryResult.success && categoryResult.category) {
+          if (categoryResult.success && categoryResult.data) {
             setPublicItems(
-              await updatePublicMediaCategory(item.id, categoryResult.category, categoryResult.tags ?? [])
+              await updatePublicMediaCategory(
+                item.id, 
+                categoryResult.data.category, 
+                categoryResult.data.tags ?? []
+              )
             );
           }
         }
@@ -171,27 +166,27 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
     async (id: string, transcriptUrl: string) => {
       if (mode === "personal") {
         const result = await categorizeItem(id, transcriptUrl);
-        if (!result.success || !result.category) {
+        if (!result.success || !result.data?.category) {
           throw new Error(result.error ?? "Failed to categorize media item");
         }
         updatePersonalItem(id, {
-          category: result.category,
-          tags: result.tags ?? [],
-          title: result.title,
+          category: result.data.category,
+          tags: result.data.tags ?? [],
+          title: result.data.title,
         });
         return;
       }
 
       const result = await categorizeTranscriptAction(transcriptUrl);
-      if (!result.success || !result.category) {
+      if (!result.success || !result.data?.category) {
         throw new Error(result.error ?? "Failed to categorize media item");
       }
       setPublicItems(
         await updatePublicMediaCategory(
           id,
-          result.category,
-          result.tags ?? [],
-          result.title
+          result.data.category,
+          result.data.tags ?? [],
+          result.data.title
         )
       );
     },
@@ -244,7 +239,7 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
         },
       });
 
-      if (!result.success || !result.transcriptContent) {
+      if (!result.success || !result.data) {
         throw new Error(result.error ?? "Failed to generate transcript");
       }
 
@@ -253,16 +248,16 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
         item.platform,
         item.videoId,
         "txt",
-        result.transcriptContent
+        result.data
       );
 
       let nextItems = await updatePublicMediaItem(item.id, { transcriptUrl });
       const categoryResult = await categorizeTranscriptAction(transcriptUrl);
-      if (categoryResult.success && categoryResult.category) {
+      if (categoryResult.success && categoryResult.data) {
         nextItems = await updatePublicMediaCategory(
           item.id,
-          categoryResult.category,
-          categoryResult.tags ?? []
+          categoryResult.data.category,
+          categoryResult.data.tags ?? []
         );
       }
       setPublicItems(nextItems);
@@ -312,7 +307,7 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
         transcriptContent,
       });
 
-      if (!result.success || !result.notesContent) {
+      if (!result.success || !result.data) {
         throw new Error(result.error ?? "Failed to generate notes");
       }
 
@@ -321,7 +316,7 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
         item.platform,
         item.videoId,
         "md",
-        result.notesContent
+        result.data
       );
 
       setPublicItems(await updatePublicMediaItem(item.id, { notesUrl }));
@@ -518,6 +513,8 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
                       onDelete={handleDelete}
                       onGenerateTranscript={mode === "public" ? handleGenerateTranscript : undefined}
                       onGenerateNotes={mode === "public" ? handleGenerateNotes : undefined}
+                      onGenerateQuestions={generateTranscriptQuestions}
+                      onAnswerQuestion={answerTranscriptQuestion}
                     />
                   ))}
                 </motion.div>
@@ -538,6 +535,8 @@ export default function MediaDashboard({ initialItems, mode }: MediaDashboardPro
                 onDelete={handleDelete}
                 onGenerateTranscript={mode === "public" ? handleGenerateTranscript : undefined}
                 onGenerateNotes={mode === "public" ? handleGenerateNotes : undefined}
+                onGenerateQuestions={generateTranscriptQuestions}
+                onAnswerQuestion={answerTranscriptQuestion}
               />
             </motion.div>
           )}

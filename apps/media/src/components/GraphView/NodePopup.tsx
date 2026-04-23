@@ -1,24 +1,42 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Play, X, ChevronUp, Sparkles, ChevronRight } from "lucide-react";
+import { Play, X, ChevronUp, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import Image from "next/image";
-import { GraphNode } from "./useGraphData";
 import { AIPanel } from "@/components/shared/AIPanel";
+import { useNotes } from "@/hooks/useNotes";
+import type { GraphNode } from "@/lib/graph/types";
 
-interface NodePopupProps {
+/**
+ * Prop interface for the NodePopup component.
+ */
+export interface NodePopupProps {
+  /** The graph node being inspected */
   node: GraphNode;
+  /** Calculated screen coordinate X */
   screenX: number;
+  /** Calculated screen coordinate Y */
   screenY: number;
+  /** Callback to close the popup */
   onClose: () => void;
+  /** Current viewport width (for overflow detection) */
   containerWidth: number;
+  /** Current viewport height (for overflow detection) */
   containerHeight: number;
+  /** Injected server action for AI question generation */
+  onGenerateQuestions: (transcript: string, title: string) => Promise<string[]>;
+  /** Injected server action for AI question answering */
+  onAnswerQuestion: (question: string, transcript: string, title: string) => Promise<string>;
 }
 
+/**
+ * A floating popup that appears when a graph node is clicked.
+ * Provides a high-level overview of the media item and access to AI tools.
+ */
 export const NodePopup: React.FC<NodePopupProps> = ({
   node,
   screenX,
@@ -26,13 +44,15 @@ export const NodePopup: React.FC<NodePopupProps> = ({
   onClose,
   containerWidth,
   containerHeight,
+  onGenerateQuestions,
+  onAnswerQuestion,
 }) => {
   const [panelOpen, setPanelOpen] = useState(false);
   const item = node.item;
 
   if (!item) return null;
 
-  const handleTranscriptToggle = () => {
+  const handleAiToggle = () => {
     setPanelOpen(prev => !prev);
   };
 
@@ -53,7 +73,7 @@ export const NodePopup: React.FC<NodePopupProps> = ({
       }}
       className="fixed z-50 w-[320px] max-h-[520px] flex flex-col rounded-xl border border-emerald-500/25 bg-[#050a0e]/95 p-0 shadow-[0_0_30px_rgba(0,255,136,0.1)] backdrop-blur-xl overflow-hidden"
     >
-      {/* Header - fixed height */}
+      {/* Header */}
       <div className="shrink-0 flex items-start gap-3 p-4 bg-emerald-500/5">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-emerald-500/20 bg-black">
           {item.thumbnailUrl ? (
@@ -62,6 +82,7 @@ export const NodePopup: React.FC<NodePopupProps> = ({
               alt={item.title}
               fill
               className="object-cover"
+              sizes="64px"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -96,10 +117,10 @@ export const NodePopup: React.FC<NodePopupProps> = ({
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {panelOpen ? (
             <motion.div
-              key="ai-panel-wrapper"
+              key="ai-panel"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -111,11 +132,13 @@ export const NodePopup: React.FC<NodePopupProps> = ({
                 title={item.title}
                 enabled={panelOpen}
                 variant="popup"
+                onGenerateQuestions={onGenerateQuestions}
+                onAnswerQuestion={onAnswerQuestion}
               />
             </motion.div>
           ) : (
             <motion.div
-              key="notes-preview-only"
+              key="notes-preview"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -132,14 +155,14 @@ export const NodePopup: React.FC<NodePopupProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* Footer Actions - fixed */}
+      {/* Footer Actions */}
       <div className="shrink-0 flex items-center justify-between gap-2 p-3 bg-black/40 border-t border-emerald-500/10">
         <div className="flex gap-2">
           {item.transcriptUrl && item.notesUrl && (
             <Button
               variant="outline"
               size="sm"
-              onClick={handleTranscriptToggle}
+              onClick={handleAiToggle}
               className={`h-8 border-emerald-500/30 text-[11px] transition-colors ${
                 panelOpen
                   ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/50'
@@ -166,27 +189,10 @@ export const NodePopup: React.FC<NodePopupProps> = ({
   );
 };
 
-// Helper component for simple notes preview when AI panel is closed
 const NotesPreview: React.FC<{ notesUrl: string | null }> = ({ notesUrl }) => {
-  const [content, setContent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const notesState = useNotes(notesUrl);
 
-  useEffect(() => {
-    if (!notesUrl) return;
-    setLoading(true);
-    fetch(notesUrl)
-      .then(r => r.text())
-      .then(text => {
-        setContent(text.slice(0, 300));
-        setLoading(false);
-      })
-      .catch(() => {
-        setContent(null);
-        setLoading(false);
-      });
-  }, [notesUrl]);
-
-  if (loading) {
+  if (notesState.status === "loading") {
     return (
       <div className="space-y-2 animate-pulse">
         <div className="h-3 w-full bg-emerald-500/10 rounded" />
@@ -195,10 +201,13 @@ const NotesPreview: React.FC<{ notesUrl: string | null }> = ({ notesUrl }) => {
     );
   }
 
-  return content ? (
-    <ReactMarkdown>{content + (content.length >= 300 ? "..." : "")}</ReactMarkdown>
-  ) : (
-    <span className="text-[12px] text-white/40 italic">No notes available</span>
-  );
-};
+  if (notesState.status === "success") {
+    return (
+      <ReactMarkdown>
+        {notesState.data.slice(0, 300) + (notesState.data.length >= 300 ? "..." : "")}
+      </ReactMarkdown>
+    );
+  }
 
+  return <span className="text-[12px] text-white/40 italic">No notes available</span>;
+};
