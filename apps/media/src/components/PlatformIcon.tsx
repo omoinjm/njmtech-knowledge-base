@@ -1,4 +1,4 @@
-import type { Platform } from "@/lib/mock-data";
+import type { Platform } from "@/types/media";
 
 const icons: Record<Platform, { label: string; color: string; path: string }> = {
   youtube: {

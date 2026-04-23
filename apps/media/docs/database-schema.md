@@ -217,7 +217,7 @@ WHERE id = $3;
 
 ## TypeScript Interface
 
-Defined in `src/lib/mock-data.ts`. Maps directly to the DB row via `rowToItem()` in `src/lib/db.ts`.
+Defined in `src/types/media.ts`. Maps directly to the DB row via `rowToItem()` in `src/lib/db.ts`.
 
 ```typescript
 export type Platform = "youtube" | "tiktok" | "instagram" | "twitter" | "unknown";

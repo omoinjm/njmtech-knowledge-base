@@ -1,6 +1,6 @@
 "use client";
 
-import type { MediaItem } from "./mock-data";
+import type { MediaItem } from "@/types/media";
 import { clearEncryptedJson, loadEncryptedJson, saveEncryptedJson } from "./secure-local-storage";
 
 interface StoredPublicMediaItem {
