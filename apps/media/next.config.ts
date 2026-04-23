@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "img.youtube.com" },
       { protocol: "https", hostname: "i.vimeocdn.com" },
       { protocol: "https", hostname: "*.vimeocdn.com" },
+      { protocol: "https", hostname: "scontent.cdninstagram.com" },
+      { protocol: "https", hostname: "*.cdninstagram.com" },
+      { protocol: "https", hostname: "*.fbcdn.net" },
     ],
   },
 };

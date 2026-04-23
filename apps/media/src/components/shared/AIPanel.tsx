@@ -136,7 +136,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 
       {/* Question Pills */}
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {isLoadingQuestions ? (
+        {isLoadingQuestions || transcriptState.status === "loading" ? (
           [88, 112, 96, 124].map((w, i) => (
             <div
               key={i}
@@ -144,7 +144,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
               style={{ width: w }}
             />
           ))
-        ) : (
+        ) : questions.length > 0 ? (
           questions.map((q) => (
             <button
               key={q}
@@ -158,7 +158,11 @@ export const AIPanel: React.FC<AIPanelProps> = ({
               {q}
             </button>
           ))
-        )}
+        ) : transcriptState.status === "success" ? (
+          <span className="text-[11px] text-white/40 italic">No questions could be generated.</span>
+        ) : transcriptState.status === "error" ? (
+          <span className="text-[11px] text-red-400/60 italic">Failed to load context for AI.</span>
+        ) : null}
       </div>
 
       {/* Answer Area */}

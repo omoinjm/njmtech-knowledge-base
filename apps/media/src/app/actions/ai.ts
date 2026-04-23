@@ -243,19 +243,44 @@ export async function generateTranscriptQuestions(
   transcriptText: string,
   title: string
 ): Promise<string[]> {
-  const token = env.githubToken;
-  if (!token) return [];
   try {
+    const token = env.githubToken;
+    if (!token) return [];
+    
     const client = new OpenAI({ baseURL: "https://models.inference.ai.azure.com", apiKey: token });
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: `Generate 4 questions for "${title}" based on transcript: ${transcriptText.slice(0, 2000)}` }],
-      max_tokens: 200,
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that generates exactly 4 short, engaging questions based on a transcript. Your response MUST be a JSON array of strings. Do not include any other text."
+        },
+        {
+          role: "user",
+          content: `Title: "${title}"\nTranscript snippet: ${transcriptText.slice(0, 3000)}`
+        }
+      ],
+      max_tokens: 300,
     });
-    const content = response.choices[0]?.message?.content ?? "[]";
-    const parsed = JSON.parse(content.replace(/```json|```/g, "").trim());
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+    
+    const content = response.choices[0]?.message?.content?.trim() ?? "[]";
+    // Clean potential markdown blocks
+    const cleanJson = content.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    if (Array.isArray(parsed)) {
+      return parsed.slice(0, 4);
+    }
+    
+    // Fallback for object format
+    if (typeof parsed === 'object' && parsed !== null) {
+      const firstArray = Object.values(parsed).find(Array.isArray);
+      if (firstArray) return firstArray.slice(0, 4);
+    }
+
+    return [];
+  } catch (err) {
+    console.error("[generateTranscriptQuestions] Error:", err);
     return [];
   }
 }
@@ -265,9 +290,10 @@ export async function answerTranscriptQuestion(
   transcriptText: string,
   title: string
 ): Promise<string> {
-  const token = env.githubToken;
-  if (!token) return "Token missing";
   try {
+    const token = env.githubToken;
+    if (!token) return "AI services are not configured.";
+    
     const client = new OpenAI({ baseURL: "https://models.inference.ai.azure.com", apiKey: token });
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -278,7 +304,8 @@ export async function answerTranscriptQuestion(
       max_tokens: 400,
     });
     return response.choices[0]?.message?.content ?? "No answer";
-  } catch {
+  } catch (err) {
+    console.error("[answerTranscriptQuestion] Error:", err);
     return "Failed to get answer";
   }
 }

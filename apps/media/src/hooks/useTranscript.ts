@@ -18,12 +18,12 @@ export function useTranscript(
 
   useEffect(() => {
     if (!enabled || !url) {
-      if (!url) setState({ status: "idle" });
+      setState({ status: "idle" });
       return;
     }
 
-    // Don't re-fetch if already success
-    if (state.status === "success") return;
+    // Don't re-fetch if already loading or success
+    if (state.status === "loading" || state.status === "success") return;
 
     setState({ status: "loading" });
     fetch(url)
@@ -37,7 +37,7 @@ export function useTranscript(
       .catch((err) => {
         setState({ status: "error", message: err instanceof Error ? err.message : "Unknown error" });
       });
-  }, [url, enabled, state.status]);
+  }, [url, enabled]);
 
   return state;
 }
