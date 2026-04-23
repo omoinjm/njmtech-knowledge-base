@@ -22,6 +22,12 @@ export async function loadSecrets(): Promise<void> {
   if (initialized) return;
   initialized = true;
 
+  // Only use Infisical SDK in development.
+  // In production/staging, secrets are synced directly to the environment via Vercel integration.
+  if (process.env.NODE_ENV !== "development") {
+    return;
+  }
+
   const clientId = process.env.INFISICAL_CLIENT_ID;
   const clientSecret = process.env.INFISICAL_CLIENT_SECRET;
   const projectId = process.env.INFISICAL_PROJECT_ID;
