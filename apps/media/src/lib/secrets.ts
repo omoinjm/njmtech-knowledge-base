@@ -1,5 +1,3 @@
-import { InfisicalSDK } from "@infisical/sdk";
-
 let initialized = false;
 
 /**
@@ -41,6 +39,7 @@ export async function loadSecrets(): Promise<void> {
   const siteUrl = process.env.INFISICAL_SITE_URL;
 
   try {
+    const { InfisicalSDK } = await import("@infisical/sdk");
     const client = new InfisicalSDK({ ...(siteUrl ? { siteUrl } : {}) });
 
     await client.auth().universalAuth.login({ clientId, clientSecret });

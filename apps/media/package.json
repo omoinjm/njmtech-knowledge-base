@@ -14,7 +14,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@infisical/sdk": "^5.0.0",
     "@neondatabase/serverless": "^1.0.2",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-label": "^2.1.7",
@@ -43,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@infisical/sdk": "^5.0.1",
     "@next/eslint-plugin-next": "^16.2.3",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/typography": "^0.5.16",
