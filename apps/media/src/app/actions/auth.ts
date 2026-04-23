@@ -43,7 +43,9 @@ export async function hasPersonalAccessConfigured(): Promise<boolean> {
   try {
     return await dbHasPersonalAccessKey();
   } catch (err) {
-    console.error("[hasPersonalAccessConfigured] Failed to check key config:", err);
+    // If it's a database error, we want to know about it in the logs
+    console.error("[hasPersonalAccessConfigured] Error checking key configuration. This might be due to a missing POSTGRES_URL or a connection issue:", err);
+    // We still return false to show the setup gate, but the log will now reveal the true cause.
     return false;
   }
 }
