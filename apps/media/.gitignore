@@ -1,0 +1,2 @@
+# Un-ignore src/lib/ which is globally ignored by the root .gitignore
+!src/lib/
