@@ -173,9 +173,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     keyPoints ? `### Key Takeaways\n${keyPoints}` : null,
   ].filter(Boolean).join("\n\n");
 
-  // Fallback: If we have notes but couldn't extract specific sections, show a preview of the full note
+  // Fallback: If we have notes but couldn't extract specific sections, show the full note
   if (!summarizedContent && notesContent) {
-    summarizedContent = notesContent.slice(0, 1000) + (notesContent.length > 1000 ? "..." : "");
+    summarizedContent = notesContent;
   }
 
   return (
@@ -318,7 +318,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                   {[100, 85, 90, 75].map((w, i) => <div key={i} className="h-2.5 bg-white/5 rounded" style={{ width: `${w}%` }} />)}
                 </div>
               ) : transcriptViewMode === "summarized" ? (
-                <div className="overflow-y-auto max-h-[300px] prose prose-invert prose-xs scrollbar-thin pr-2">
+                <div className="prose prose-invert prose-xs pr-2">
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{

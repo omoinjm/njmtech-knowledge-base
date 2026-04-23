@@ -131,7 +131,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 
   // Fallback if extraction fails
   if (!summarizedContent && notesState.status === "success" && notesState.data) {
-    summarizedContent = notesState.data.slice(0, 1000) + (notesState.data.length > 1000 ? "..." : "");
+    summarizedContent = notesState.data;
   }
 
   return (
@@ -256,9 +256,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
             className="overflow-hidden mb-4"
           >
             <div className="border-t border-emerald-500/10 pt-3">
-              <div
-                className={`overflow-y-auto ${styles.transcriptMaxH} pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20`}
-              >
+              <div className="pr-1">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -285,7 +283,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 
                 <div className="mt-4 pt-4 border-t border-emerald-500/5">
                   <p className="text-[9px] uppercase tracking-widest text-white/20 font-bold mb-2">Raw Lines</p>
-                  <div className="space-y-2">
+                  <div className={`overflow-y-auto ${styles.transcriptMaxH} space-y-2 pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20`}>
                     {parsedLines.map((line, i) => (
                       <div key={i} className="flex gap-2 text-[11px] leading-relaxed group">
                         {line.timestamp && (
