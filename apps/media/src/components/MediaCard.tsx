@@ -1,10 +1,11 @@
 "use client";
 
+import React, { useState, useTransition } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Loader2, Play, Trash2, X, FileText, BookOpen, Sparkles, StickyNote } from "lucide-react";
-import { useState, useTransition } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { MediaItem } from "@/types/media";
 import { PlatformIcon } from "./PlatformIcon";
 import { AIPanel } from "./shared/AIPanel";
@@ -83,6 +84,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesContent, setNotesContent] = useState<string | null>(null);
   const [notesLoading, setNotesLoading] = useState(false);
+  const [transcriptViewMode, setTranscriptViewMode] = useState<"summarized" | "raw">("summarized");
 
   const embedUrl = getEmbedUrl(item.platform, item.videoId);
   const canEmbed = embedUrl !== null;
@@ -119,6 +121,21 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         setTranscriptLoading(false);
       }
     }
+    
+    // Also fetch notes for summary if not already loaded
+    if (!transcriptOpen && notesContent === null && item.notesUrl) {
+      setNotesLoading(true);
+      try {
+        const res = await fetch(item.notesUrl);
+        const text = await res.text();
+        setNotesContent(text);
+      } catch {
+        // Silent fail for summary
+      } finally {
+        setNotesLoading(false);
+      }
+    }
+
     setTranscriptOpen(prev => !prev);
   };
 
@@ -137,6 +154,29 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     }
     setNotesOpen(prev => !prev);
   };
+
+  // Extract summary components from notes if available - more flexible regex for headings
+  const transcriptSummary = notesContent 
+    ? (notesContent.match(/#+ Summary\n+([\s\S]+?)(?=\n+#+|$)/i)?.[1]?.trim()) 
+    : null;
+  const keyMoments = notesContent
+    ? (notesContent.match(/#+ Key Moments\n+([\s\S]+?)(?=\n+#+|$)/i)?.[1]?.trim())
+    : null;
+  const keyPoints = notesContent
+    ? (notesContent.match(/#+ Key Points\n+([\s\S]+?)(?=\n+#+|$)/i)?.[1]?.trim())
+    : null;
+
+  // Combine for summarized view
+  let summarizedContent = [
+    transcriptSummary ? `### Summary\n${transcriptSummary}` : null,
+    keyMoments ? `### Key Moments\n${keyMoments}` : null,
+    keyPoints ? `### Key Takeaways\n${keyPoints}` : null,
+  ].filter(Boolean).join("\n\n");
+
+  // Fallback: If we have notes but couldn't extract specific sections, show a preview of the full note
+  if (!summarizedContent && notesContent) {
+    summarizedContent = notesContent.slice(0, 1000) + (notesContent.length > 1000 ? "..." : "");
+  }
 
   return (
     <motion.div
@@ -255,10 +295,54 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             className="overflow-hidden"
           >
             <div className="mx-4 border-t border-white/8 pt-3 pb-3">
-              <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2">Transcript</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold">Transcript</p>
+                <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
+                  <button 
+                    onClick={() => setTranscriptViewMode("summarized")}
+                    className={`px-2 py-0.5 text-[10px] rounded-md transition-all ${transcriptViewMode === "summarized" ? "bg-emerald-500/20 text-emerald-400 font-bold" : "text-white/40 hover:text-white/60"}`}
+                  >
+                    Summarized
+                  </button>
+                  <button 
+                    onClick={() => setTranscriptViewMode("raw")}
+                    className={`px-2 py-0.5 text-[10px] rounded-md transition-all ${transcriptViewMode === "raw" ? "bg-emerald-500/20 text-emerald-400 font-bold" : "text-white/40 hover:text-white/60"}`}
+                  >
+                    Raw
+                  </button>
+                </div>
+              </div>
+
               {transcriptLoading ? (
                 <div className="space-y-1.5 animate-pulse">
                   {[100, 85, 90, 75].map((w, i) => <div key={i} className="h-2.5 bg-white/5 rounded" style={{ width: `${w}%` }} />)}
+                </div>
+              ) : transcriptViewMode === "summarized" ? (
+                <div className="overflow-y-auto max-h-[300px] prose prose-invert prose-xs scrollbar-thin pr-2">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => {
+                        // Regex to find timestamps like (00:00) or (00:00-00:00)
+                        const content = React.Children.toArray(children).map(child => {
+                          if (typeof child === 'string') {
+                            const parts = child.split(/(\(\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\))/g);
+                            return parts.map((part, i) => {
+                              if (part.match(/\(\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\)/)) {
+                                return <span key={i} className="text-emerald-400 font-mono font-medium">{part}</span>;
+                              }
+                              return part;
+                            });
+                          }
+                          return child;
+                        });
+                        return <p className="mb-2 leading-relaxed text-white/70">{content}</p>;
+                      },
+                      h3: ({ children }) => <h3 className="text-emerald-400 font-bold uppercase tracking-wider text-[10px] mt-4 mb-2">{children}</h3>
+                    }}
+                  >
+                    {summarizedContent || "_No summary available yet. Try generating notes._"}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <div className="overflow-y-auto max-h-[220px] space-y-1 scrollbar-thin">
@@ -288,8 +372,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                   {[100, 80, 90, 70].map((w, i) => <div key={i} className="h-2.5 bg-white/5 rounded" style={{ width: `${w}%` }} />)}
                 </div>
               ) : (
-                <div className="overflow-y-auto max-h-[220px] prose prose-invert prose-xs text-white/65">
-                  <ReactMarkdown>{notesContent || ""}</ReactMarkdown>
+                <div className="overflow-y-auto max-h-[220px] prose prose-invert prose-xs scrollbar-thin">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{notesContent || ""}</ReactMarkdown>
                 </div>
               )}
             </div>

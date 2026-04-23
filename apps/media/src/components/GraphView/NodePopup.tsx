@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, X, ChevronUp, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { PlatformIcon } from "@/components/PlatformIcon";
 import Image from "next/image";
@@ -203,9 +204,11 @@ const NotesPreview: React.FC<{ notesUrl: string | null }> = ({ notesUrl }) => {
 
   if (notesState.status === "success") {
     return (
-      <ReactMarkdown>
-        {notesState.data.slice(0, 300) + (notesState.data.length >= 300 ? "..." : "")}
-      </ReactMarkdown>
+      <div className="max-h-[250px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-emerald-500/20">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {notesState.data}
+        </ReactMarkdown>
+      </div>
     );
   }
 

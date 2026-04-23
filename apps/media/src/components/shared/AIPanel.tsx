@@ -2,8 +2,9 @@
 
 import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ChevronRight } from "lucide-react";
+import { Sparkles, ChevronRight, Send, X as CloseIcon, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { parseTranscript } from "@/lib/parseTranscript";
 import { useNotes } from "@/hooks/useNotes";
 import { useTranscript } from "@/hooks/useTranscript";
@@ -80,6 +81,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
   const notesState = useNotes(notesUrl);
   const transcriptState = useTranscript(transcriptUrl, enabled);
   const [transcriptVisible, setTranscriptVisible] = useState(false);
+  const [manualQuestion, setManualQuestion] = useState("");
 
   const {
     questions,
@@ -96,12 +98,41 @@ export const AIPanel: React.FC<AIPanelProps> = ({
     onAnswerQuestion,
   });
 
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualQuestion.trim() || isLoadingAnswer) return;
+    handleQuestionClick(manualQuestion);
+    setManualQuestion("");
+  };
+
   const parsedLines = useMemo(() => {
     if (transcriptState.status === "success") {
       return parseTranscript(transcriptState.data);
     }
     return [];
   }, [transcriptState]);
+
+  // Extract summary from notes if available
+  const transcriptSummary = notesState.status === "success"
+    ? (notesState.data.match(/#+ Summary\n+([\s\S]+?)(?=\n+#+|$)/i)?.[1]?.trim())
+    : null;
+  const keyMoments = notesState.status === "success"
+    ? (notesState.data.match(/#+ Key Moments\n+([\s\S]+?)(?=\n+#+|$)/i)?.[1]?.trim())
+    : null;
+  const keyPoints = notesState.status === "success"
+    ? (notesState.data.match(/#+ Key Points\n+([\s\S]+?)(?=\n+#+|$)/i)?.[1]?.trim())
+    : null;
+
+  let summarizedContent = [
+    transcriptSummary ? `### Summary\n${transcriptSummary}` : null,
+    keyMoments ? `### Key Moments\n${keyMoments}` : null,
+    keyPoints ? `### Key Takeaways\n${keyPoints}` : null,
+  ].filter(Boolean).join("\n\n");
+
+  // Fallback if extraction fails
+  if (!summarizedContent && notesState.status === "success" && notesState.data) {
+    summarizedContent = notesState.data.slice(0, 1000) + (notesState.data.length > 1000 ? "..." : "");
+  }
 
   return (
     <div className={styles.spacing}>
@@ -110,16 +141,18 @@ export const AIPanel: React.FC<AIPanelProps> = ({
         <p className="text-[10px] uppercase tracking-widest text-emerald-400/50 font-semibold mb-2">
           Notes Preview
         </p>
-        <div className="text-ellipsis prose prose-invert prose-sm text-[12px] leading-relaxed text-white/80">
+        <div className="prose prose-invert prose-sm text-[12px] leading-relaxed">
           {notesState.status === "loading" ? (
             <div className="space-y-2 animate-pulse">
               <div className="h-3 w-full bg-emerald-500/10 rounded" />
               <div className="h-3 w-4/5 bg-emerald-500/10 rounded" />
             </div>
           ) : notesState.status === "success" ? (
-            <ReactMarkdown>
-              {notesState.data.slice(0, 300) + (notesState.data.length >= 300 ? "..." : "")}
-            </ReactMarkdown>
+            <div className="max-h-[250px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-emerald-500/20">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {notesState.data}
+              </ReactMarkdown>
+            </div>
           ) : (
             <span className="text-[12px] text-white/40 italic">No notes available</span>
           )}
@@ -214,33 +247,82 @@ export const AIPanel: React.FC<AIPanelProps> = ({
 
       {/* Raw Transcript Content */}
       <AnimatePresence>
-        {transcriptVisible && parsedLines.length > 0 && (
+        {transcriptVisible && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden mb-2"
+            className="overflow-hidden mb-4"
           >
-            <div
-              className={`overflow-y-auto ${styles.transcriptMaxH} space-y-2 border-t border-emerald-500/10 pt-3 pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20`}
-            >
-              {parsedLines.map((line, i) => (
-                <div key={i} className="flex gap-2 text-xs leading-relaxed group">
-                  {line.timestamp && (
-                    <span className="shrink-0 font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] h-fit mt-0.5">
-                      {line.timestamp}
-                    </span>
-                  )}
-                  <span className="text-white/65 group-hover:text-white transition-colors">
-                    {line.text}
-                  </span>
+            <div className="border-t border-emerald-500/10 pt-3">
+              <div
+                className={`overflow-y-auto ${styles.transcriptMaxH} pr-1 scrollbar-thin scrollbar-thumb-emerald-500/20`}
+              >
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => {
+                      const content = React.Children.toArray(children).map(child => {
+                        if (typeof child === 'string') {
+                          const parts = child.split(/(\(\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\))/g);
+                          return parts.map((part, i) => {
+                            if (part.match(/\(\d{1,2}:\d{2}(?:-\d{1,2}:\d{2})?\)/)) {
+                              return <span key={i} className="text-emerald-400 font-mono font-medium">{part}</span>;
+                            }
+                            return part;
+                          });
+                        }
+                        return child;
+                      });
+                      return <p className="mb-2 text-[11px] leading-relaxed text-white/70">{content}</p>;
+                    },
+                    h3: ({ children }) => <h3 className="text-emerald-400 font-bold uppercase tracking-wider text-[9px] mt-4 mb-2">{children}</h3>
+                  }}
+                >
+                  {summarizedContent || "_Summarized transcript loading..._"}
+                </ReactMarkdown>
+
+                <div className="mt-4 pt-4 border-t border-emerald-500/5">
+                  <p className="text-[9px] uppercase tracking-widest text-white/20 font-bold mb-2">Raw Lines</p>
+                  <div className="space-y-2">
+                    {parsedLines.map((line, i) => (
+                      <div key={i} className="flex gap-2 text-[11px] leading-relaxed group">
+                        {line.timestamp && (
+                          <span className="shrink-0 font-mono text-emerald-500/50 bg-emerald-500/5 px-1 py-0.5 rounded text-[9px] h-fit mt-0.5">
+                            {line.timestamp}
+                          </span>
+                        )}
+                        <span className="text-white/50 group-hover:text-white/80 transition-colors">
+                          {line.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Manual Question Input */}
+      <form onSubmit={handleManualSubmit} className="relative mt-2">
+        <input
+          type="text"
+          value={manualQuestion}
+          onChange={(e) => setManualQuestion(e.target.value)}
+          placeholder="Ask a question..."
+          className="w-full bg-emerald-500/5 border border-emerald-500/20 rounded-full py-2 pl-4 pr-10 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/40 transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={!manualQuestion.trim() || isLoadingAnswer}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-emerald-500 hover:text-emerald-400 disabled:text-white/10 transition-colors"
+        >
+          {isLoadingAnswer ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        </button>
+      </form>
     </div>
   );
 };

@@ -15,11 +15,11 @@ const NOTES_SYSTEM_PROMPT = `You are a structured notes assistant. Given a video
 
 Include:
 - ## Summary (2-3 sentences)
-- ## Key Points (bullet list)
-- ## Timestamps (notable moments from the transcript with timestamps)
-- ## Action Items (if any practical takeaways)
+- ## Key Moments (Detailed bullet points. Format: **Topic Title**: Brief description with timestamp ranges like (MM:SS-MM:SS))
+- ## Key Points (Bullet list of high-level takeaways)
+- ## Action Items (If any practical takeaways)
 
-Use proper Markdown formatting. Be concise but comprehensive.`;
+Use proper Markdown formatting. Be concise but comprehensive. Ensure timestamps are included for key moments.`;
 
 /**
  * Fetches captions/subtitles for a YouTube video.

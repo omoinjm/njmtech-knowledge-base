@@ -91,7 +91,67 @@ export default {
         "fade-in": "fade-in 0.4s ease-out forwards",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
+      typography: {
+        DEFAULT: {
+          css: {
+            color: "hsl(var(--foreground))",
+            maxWidth: "none",
+            hr: {
+              borderColor: "hsl(var(--border))",
+              marginTop: "1.5em",
+              marginBottom: "1.5em",
+            },
+            "h1, h2, h3, h4": {
+              color: "hsl(var(--foreground))",
+              fontWeight: "700",
+              letterSpacing: "-0.025em",
+            },
+            h2: {
+              marginTop: "1.5em",
+              marginBottom: "0.5em",
+              color: "#10b981", // emerald-500
+            },
+            code: {
+              color: "#34d399", // emerald-400
+              backgroundColor: "rgba(16, 185, 129, 0.1)",
+              paddingLeft: "0.25rem",
+              paddingRight: "0.25rem",
+              paddingTop: "0.125rem",
+              paddingBottom: "0.125rem",
+              borderRadius: "0.25rem",
+              fontWeight: "400",
+            },
+            "code::before": { content: 'none' },
+            "code::after": { content: 'none' },
+            blockquote: {
+              borderLeftColor: "#10b981",
+              backgroundColor: "rgba(16, 185, 129, 0.05)",
+              padding: "0.5rem 1rem",
+              fontStyle: "italic",
+              color: "hsl(var(--muted-foreground))",
+            },
+            ul: {
+              listStyleType: "none",
+              paddingLeft: "0",
+            },
+            "ul > li": {
+              position: "relative",
+              paddingLeft: "1.5rem",
+            },
+            "ul > li::before": {
+              content: '""',
+              width: "0.375rem",
+              height: "0.375rem",
+              borderRadius: "50%",
+              backgroundColor: "#10b981",
+              position: "absolute",
+              left: "0.25rem",
+              top: "0.625rem",
+            },
+          },
+        },
+      },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;
