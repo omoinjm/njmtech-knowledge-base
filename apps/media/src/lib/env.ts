@@ -24,6 +24,4 @@ export const env = {
   githubToken: requireEnv("GITHUB_TOKEN"),
   /** Connection string for the Neon database */
   databaseUrl: requireEnv("POSTGRES_URL"),
-  /** Vercel Blob read/write token */
-  blobReadWriteToken: requireEnv("BLOB_READ_WRITE_TOKEN"),
 } as const;

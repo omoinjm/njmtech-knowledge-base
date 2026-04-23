@@ -36,7 +36,6 @@ A media dashboard for saving and organizing social media video links. Paste a Yo
 
 - Node.js 18+
 - A [Neon](https://neon.tech) database
-- A [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store
 - A [GitHub Models](https://github.com/marketplace/models) token (for AI categorization)
 
 ### Environment Variables
@@ -45,7 +44,7 @@ The app supports two modes for secrets:
 
 **Option A — Infisical (recommended for staging/prod)**
 
-Store `POSTGRES_URL`, `BLOB_READ_WRITE_TOKEN`, and `GITHUB_TOKEN` as secrets inside Infisical, then provide only the bootstrap credentials locally:
+Store `POSTGRES_URL` and `GITHUB_TOKEN` as secrets inside Infisical, then provide only the bootstrap credentials locally:
 
 ```env
 # .env.local — bootstrap only
@@ -65,7 +64,6 @@ If none of the `INFISICAL_*` vars are present, the app falls back to whatever is
 ```env
 # .env.local
 POSTGRES_URL=your_neon_connection_string
-BLOB_READ_WRITE_TOKEN=your_vercel_blob_token
 GITHUB_TOKEN=your_github_models_token
 ```
 
