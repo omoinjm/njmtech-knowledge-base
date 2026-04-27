@@ -15,5 +15,12 @@
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	"routes": [
+    {
+      "pattern": "api.blob.njmtech.co.za",
+      "custom_domain": true
+    }
+  ]
+
 }
