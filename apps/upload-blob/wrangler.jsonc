@@ -7,6 +7,9 @@
 		"python_workers",
 		"python_dedicated_snapshot"
 	],
+	"triggers": {
+		"crons": ["0 0 * * *"]
+	},
 	"vars": {
 		"BLOB_PREFIX": "njmtech-blob-api/"
 	},
