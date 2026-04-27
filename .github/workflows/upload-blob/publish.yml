@@ -3,7 +3,7 @@ name: Python Package Release
 on:
   push:
     tags:
-      - "v*"
+      - "upload-blob-v*"
 
 permissions:
   contents: write
