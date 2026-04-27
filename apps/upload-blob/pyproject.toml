@@ -11,9 +11,7 @@ dependencies = [
   "vercel-blob",
   "python-multipart",
   "pydantic",
-  "Werkzeug",
-  "infisicalsdk",
-  "redis"
+  "Werkzeug"
 ]
 
 [dependency-groups]

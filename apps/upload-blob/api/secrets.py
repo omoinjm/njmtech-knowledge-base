@@ -93,14 +93,22 @@ async def async_load_secrets(env_source):
 
     try:
         import js
+        from pyodide.ffi import to_js
         
         # 1. Login to get Access Token
         login_body = json.dumps({"clientId": client_id, "clientSecret": client_secret})
-        login_res = await js.fetch(f"{site_url}/api/v1/auth/universal-auth/login", {
-            "method": "POST",
-            "headers": {"Content-Type": "application/json"},
-            "body": login_body
-        })
+        login_init = to_js(
+            {
+                "method": "POST",
+                "headers": {"Content-Type": "application/json"},
+                "body": login_body,
+            },
+            dict_converter=js.Object.fromEntries,
+        )
+        login_res = await js.fetch(
+            f"{site_url}/api/v1/auth/universal-auth/login",
+            login_init,
+        )
         
         if not login_res.ok:
             print(f"[infisical] Login failed with status {login_res.status}")
@@ -111,9 +119,11 @@ async def async_load_secrets(env_source):
 
         # 2. Fetch Raw Secrets
         secrets_url = f"{site_url}/api/v3/secrets/raw?environment={environment}&workspaceId={project_id}&secretPath=/"
-        secrets_res = await js.fetch(secrets_url, {
-            "headers": {"Authorization": f"Bearer {token}"}
-        })
+        secrets_init = to_js(
+            {"headers": {"Authorization": f"Bearer {token}"}},
+            dict_converter=js.Object.fromEntries,
+        )
+        secrets_res = await js.fetch(secrets_url, secrets_init)
         
         if not secrets_res.ok:
             print(f"[infisical] Secrets fetch failed with status {secrets_res.status}")

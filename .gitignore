@@ -39,6 +39,8 @@ playwright-report/
 test-results/
 
 # --- Python (upload-blob, blob-cron) ---
+python_modules/
+apps/**/python_modules/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -120,8 +122,6 @@ go.work
 *.pb.go
 *.out
 vendor/
-# Executables
-yt-transcribe
 
 # --- Environment / Secrets ---
 .env

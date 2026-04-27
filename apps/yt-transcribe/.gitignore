@@ -1,0 +1,46 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.wasm
+*.o
+*.cgo1.go
+*.cgo2.c
+*.cgo2.h
+*.syso
+
+# Generated files
+_test
+
+# Go workspace file
+go.work
+
+# Dependency directories (remove the "!" if you want to ignore vendor/ entirely)
+# vendor/
+
+# Test binary, generated with `go test -c`
+*.test
+
+# Output of the go generate command
+*.pb.go
+
+# End of line for the 'go tool dist'
+*.out
+
+# IDEs and other tools
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# Build output
+yt-transcribe # Specific to this project's executable
+
+# Local environment variables
+.env
+
+# Executable files
+yt-transcribe

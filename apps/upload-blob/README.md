@@ -6,6 +6,8 @@ This project is built using the following technologies:
 
 *   🐍 **Python**: The core programming language.
 *   ⚡ **FastAPI**: A modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.
+*   ☁️ **Cloudflare Workers (Python Workers)**: Primary runtime and deployment platform.
+*   🧰 **Wrangler / PyWrangler**: Local development and deployment tooling for Cloudflare Workers.
 *   ☁️ **Vercel Blob**: A serverless, scalable, and cost-efficient object storage solution for the web.
 *   🦄 **Uvicorn**: A lightning-fast ASGI server, used to run the FastAPI application.
 *   .env **python-dotenv**: Manages environment variables, loading them from a `.env` file.
@@ -15,18 +17,22 @@ This project is built using the following technologies:
 
 
 This is a simple FastAPI application to upload files to Vercel Blob storage.
+The app is deployed primarily on Cloudflare Workers. Vercel Blob is used only as the object storage backend.
 
 ## Setup
 
-1.  **Install dependencies:**
+1.  **Install workspace dependencies (from repository root):**
 
     ```bash
-    pip install -r requirements.txt
+    npm install
     ```
+
+    This app lives in a Node/Nx workspace. Cloudflare tooling (Wrangler) is managed through `package.json`.
+    Python code is the application runtime, but workspace orchestration is Node-first.
 
 2.  **Set up environment variables:**
 
-    Create a `.env.local` file in the root of the project and add your Vercel Blob read-write token:
+    Create a `.env` file in the root of the project and add your Vercel Blob read-write token:
 
     ```
     BLOB_READ_WRITE_TOKEN="YOUR_BLOB_READ_WRITE_TOKEN"
@@ -37,10 +43,16 @@ This is a simple FastAPI application to upload files to Vercel Blob storage.
 3.  **Run the application:**
 
     ```bash
-    uvicorn api.main:app --reload
+    npm run dev
     ```
 
-    The application will be running at `http://127.0.0.1:8000`.
+    The Worker will run locally via Wrangler.
+
+4.  **Deploy to Cloudflare Workers:**
+
+    ```bash
+    npm run deploy
+    ```
 
 ## Testing
 

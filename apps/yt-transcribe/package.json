@@ -1,0 +1,11 @@
+{
+  "name": "njmtech-yt-transcribe",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "nx build yt-transcribe",
+    "test": "nx test yt-transcribe",
+    "serve": "nx serve yt-transcribe",
+    "lint": "nx lint yt-transcribe"
+  }
+}

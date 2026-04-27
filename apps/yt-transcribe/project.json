@@ -1,0 +1,36 @@
+{
+  "name": "yt-transcribe",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/yt-transcribe",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go build -o yt-transcribe .",
+        "cwd": "apps/yt-transcribe"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test ./...",
+        "cwd": "apps/yt-transcribe"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PORT=3000 go run .",
+        "cwd": "apps/yt-transcribe"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go vet ./...",
+        "cwd": "apps/yt-transcribe"
+      }
+    }
+  }
+}

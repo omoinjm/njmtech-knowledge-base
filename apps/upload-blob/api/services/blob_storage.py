@@ -1,9 +1,14 @@
 import vercel_blob
 from werkzeug.utils import secure_filename
 from pathlib import Path
-import redis
 import json
+import sys
 from ..config import Settings
+
+try:
+    import redis
+except Exception:
+    redis = None
 
 class BlobStorageService:
     """
@@ -12,31 +17,43 @@ class BlobStorageService:
     """
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.redis_client = (
-            redis.Redis.from_url(settings.REDIS_URL) 
-            if settings.REDIS_URL else None
-        )
+        # Redis sockets are not fully supported in Python Workers (Pyodide).
+        # Disable Redis caching there and fallback to no-cache behavior.
+        if settings.REDIS_URL and redis is not None and "pyodide" not in sys.modules:
+            self.redis_client = redis.Redis.from_url(settings.REDIS_URL)
+        else:
+            self.redis_client = None
         self.CACHE_KEY = "blob_files_cache"
 
     def get_cached_blobs(self):
         if not self.redis_client:
             return None
-        cached_data = self.redis_client.get(self.CACHE_KEY)
-        if cached_data:
-            return json.loads(cached_data)
+        try:
+            cached_data = self.redis_client.get(self.CACHE_KEY)
+            if cached_data:
+                return json.loads(cached_data)
+        except Exception:
+            # Disable Redis after runtime socket/protocol failures.
+            self.redis_client = None
         return None
 
     def set_cached_blobs(self, data):
         if self.redis_client:
-            self.redis_client.set(
-                self.CACHE_KEY, 
-                json.dumps(data), 
-                ex=self.settings.CACHE_TTL
-            )
+            try:
+                self.redis_client.set(
+                    self.CACHE_KEY, 
+                    json.dumps(data), 
+                    ex=self.settings.CACHE_TTL
+                )
+            except Exception:
+                self.redis_client = None
 
     def invalidate_cache(self):
         if self.redis_client:
-            self.redis_client.delete(self.CACHE_KEY)
+            try:
+                self.redis_client.delete(self.CACHE_KEY)
+            except Exception:
+                self.redis_client = None
 
     def upload_to_blob_storage(
         self, filename: str, contents: bytes, blob_path: str, allow_overwrite: bool = False
@@ -57,7 +74,7 @@ class BlobStorageService:
         # even if the environment variable is not set (e.g., in some Workers environments).
         options = {
             "allowOverwrite": allow_overwrite,
-            "token": self.settings.VERCEL_BLOB_API_TOKEN
+            "token": self.settings.BLOB_READ_WRITE_TOKEN
         }
         blob_result = vercel_blob.put(path, contents, options)
 
@@ -75,7 +92,7 @@ class BlobStorageService:
         # Wrap the prefix and token in an options dictionary
         options = {
             "prefix": self.settings.BLOB_PREFIX,
-            "token": self.settings.VERCEL_BLOB_API_TOKEN
+            "token": self.settings.BLOB_READ_WRITE_TOKEN
         }
         result = vercel_blob.list(options)
 
@@ -129,7 +146,7 @@ class BlobStorageService:
         This saves one Advanced Operation by avoiding the list() call.
         """
         try:
-            options = {"token": self.settings.VERCEL_BLOB_API_TOKEN}
+            options = {"token": self.settings.BLOB_READ_WRITE_TOKEN}
             vercel_blob.delete(url, options)
             self.invalidate_cache()
             return True
