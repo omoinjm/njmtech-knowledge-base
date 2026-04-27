@@ -34,11 +34,8 @@ class Settings:
             # Fallback to os.environ (where Infisical injected them)
             return os.getenv(key, default)
 
-        api_token = get_env("VERCEL_BLOB_API_TOKEN") or get_env("API_TOKEN")
-        blob_read_write_token = (
-            get_env("BLOB_READ_WRITE_TOKEN")
-            or get_env("VERCEL_BLOB_READ_WRITE_TOKEN")
-        )
+        api_token = get_env("VERCEL_BLOB_API_TOKEN")
+        blob_read_write_token = get_env("BLOB_READ_WRITE_TOKEN")
 
         # Standardize aliases where available.
         if api_token and not get_env("VERCEL_BLOB_API_TOKEN"):
