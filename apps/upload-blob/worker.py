@@ -1,9 +1,11 @@
-from api.main import app
+from api.runtime.worker_app import handle_request, run_scheduled_refresh
 from workers import WorkerEntrypoint
+
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
-        import asgi
+        return await handle_request(request, self.env)
 
-        # The env object contains your environment variables/secrets
-        return await asgi.fetch(app, request.js_object, self.env)
+    async def scheduled(self, controller):
+        # Native Cloudflare cron trigger handler.
+        await run_scheduled_refresh(self.env)

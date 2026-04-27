@@ -1,6 +1,5 @@
 import os
 from dataclasses import dataclass
-from dotenv import load_dotenv
 from .secrets import load_secrets
 
 
@@ -23,11 +22,7 @@ class Settings:
         """
         Load settings. Infisical is the source of truth.
         """
-        # Load local .env for bootstrapping Infisical credentials if needed.
-        # This is harmless when values are already injected by `infisical run`.
-        load_dotenv()
-
-        # 2. Fetch all other variables from Infisical (injects into os.environ or env_source)
+        # Fetch variables from Infisical (injects into os.environ or env_source)
         load_secrets(env_source)
 
         def get_env(key, default=None):

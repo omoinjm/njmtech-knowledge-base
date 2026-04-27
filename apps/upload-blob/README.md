@@ -5,19 +5,11 @@
 This project is built using the following technologies:
 
 *   🐍 **Python**: The core programming language.
-*   ⚡ **FastAPI**: A modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints.
 *   ☁️ **Cloudflare Workers (Python Workers)**: Primary runtime and deployment platform.
 *   🧰 **Wrangler / PyWrangler**: Local development and deployment tooling for Cloudflare Workers.
 *   ☁️ **Vercel Blob**: A serverless, scalable, and cost-efficient object storage solution for the web.
-*   🦄 **Uvicorn**: A lightning-fast ASGI server, used to run the FastAPI application.
-*   .env **python-dotenv**: Manages environment variables, loading them from a `.env` file.
-*   🛠️ **Werkzeug**: A comprehensive WSGI web application library, used here for secure filename handling.
-*   🧪 **Pytest**: A mature full-featured Python testing framework.
 
-
-
-This is a simple FastAPI application to upload files to Vercel Blob storage.
-The app is deployed primarily on Cloudflare Workers. Vercel Blob is used only as the object storage backend.
+This is a Cloudflare Worker API for uploading and managing files in Vercel Blob storage.
 
 ## Setup
 
@@ -54,22 +46,6 @@ The app is deployed primarily on Cloudflare Workers. Vercel Blob is used only as
     npm run deploy
     ```
 
-## Testing
-
-To run the tests for this project, follow these steps:
-
-1.  **Install test dependencies:**
-
-    ```bash
-    pip install -r tests/requirements.txt
-    ```
-
-2.  **Run the tests:**
-
-    ```bash
-    pytest tests/
-    ```
-
 ## API Endpoint
 
 ### Upload File
@@ -86,5 +62,5 @@ To run the tests for this project, follow these steps:
 curl -X POST \
   -H "Authorization: Bearer YOUR_API_TOKEN" \
   -F "file=@/path/to/your/file.txt" \
-  http://127.0.0.1:8000/api/v1/upload
+  http://127.0.0.1:8787/api/v1/upload
 ```

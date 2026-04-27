@@ -43,6 +43,10 @@ python_modules/redis/
 python_modules/redis-*/
 python_modules/infisical_sdk/
 python_modules/infisicalsdk-*.dist-info/
+python_modules/tqdm/
+python_modules/tqdm-*.dist-info/
+python_modules/dotenv/
+python_modules/python_dotenv-*.dist-info/
 python_modules/**/tests/
 python_modules/**/test.py
 python_modules/**/test_*.py

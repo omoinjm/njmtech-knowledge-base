@@ -7,16 +7,9 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "uvicorn api.main:app --reload",
+        "command": "uv run pywrangler dev",
         "cwd": "apps/upload-blob",
         "envFile": "environments/upload-blob.env"
-      }
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "pytest",
-        "cwd": "apps/upload-blob"
       }
     }
   }

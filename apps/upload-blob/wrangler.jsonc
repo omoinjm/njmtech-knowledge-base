@@ -7,10 +7,20 @@
 		"python_workers",
 		"python_dedicated_snapshot"
 	],
+	"triggers": {
+		"crons": ["0 0 * * *"]
+	},
 	"vars": {
 		"BLOB_PREFIX": "njmtech-blob-api/"
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	"routes": [
+    {
+      "pattern": "api.blob.njmtech.co.za",
+      "custom_domain": true
+    }
+  ]
+
 }
