@@ -5,13 +5,6 @@ description = "This is a simple FastAPI application to upload files to Vercel Bl
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi",
-  "uvicorn",
-  "python-dotenv",
-  "vercel-blob",
-  "python-multipart",
-  "pydantic",
-  "Werkzeug"
 ]
 
 [dependency-groups]
