@@ -13,10 +13,10 @@ WORKDIR /app
 # leveraging Docker's layer caching. NOTE: when enabling build-tags that pull
 # additional imports, it's safer to run 'go mod download' after copying the full
 # source so the module graph includes all build-tagged files.
-COPY apps/yt-transcribe/go.mod apps/yt-transcribe/go.sum ./
+COPY go.mod go.sum ./
 
 # Copy the rest of the application's source code.
-COPY apps/yt-transcribe/ .
+COPY . .
 
 # Add the Infisical SDK to the module graph and download dependencies.
 RUN go get github.com/infisical/go-sdk@v0.7.1
@@ -52,7 +52,7 @@ RUN git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp.
 COPY --from=builder /yt-transcribe /usr/local/bin/
 
 # Copy the entrypoint script and make it executable.
-COPY apps/yt-transcribe/entrypoint.sh /usr/local/bin/
+COPY entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set the entrypoint to manage cron scheduling.
