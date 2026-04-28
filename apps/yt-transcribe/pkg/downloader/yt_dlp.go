@@ -25,6 +25,8 @@ var cmdCombinedOutput = func(cmd *exec.Cmd) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
+const maxErrorOutputChars = 3000
+
 // YTDLPAudioDownloader is an implementation of VideoDownloader that uses the `yt-dlp` external tool.
 // It downloads the audio stream of a given video.
 type YTDLPAudioDownloader struct {
@@ -69,6 +71,12 @@ func (d *YTDLPAudioDownloader) DownloadAudio(ctx context.Context, videoURL strin
 		jsRuntimes = "node"
 	}
 	commonArgs = append(commonArgs, "--js-runtimes", jsRuntimes)
+	// Prefer direct audio formats to avoid HLS fragment 403 failures in some data-center IP ranges.
+	commonArgs = append(commonArgs, "-f", "bestaudio[ext=m4a]/bestaudio/best")
+	// Improve resiliency against YouTube extractor/client-specific failures.
+	commonArgs = append(commonArgs, "--extractor-args", "youtube:player_client=android,web")
+	// Reduce noisy progress output while preserving errors/warnings in CombinedOutput.
+	commonArgs = append(commonArgs, "--no-progress")
 	if d.cookiesFile != "" {
 		commonArgs = append(commonArgs, "--cookies", d.cookiesFile)
 	}
@@ -81,7 +89,7 @@ func (d *YTDLPAudioDownloader) DownloadAudio(ctx context.Context, videoURL strin
 	idCmd := commandExecutor(ctx, "yt-dlp", idArgs...)
 	idOutput, err := cmdCombinedOutput(idCmd)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get video ID: %v\nOutput: %s", err, string(idOutput))
+		return "", "", fmt.Errorf("failed to get video ID: %v\nOutput: %s", err, truncateOutput(string(idOutput), maxErrorOutputChars))
 	}
 
 	lines := strings.Split(string(idOutput), "\n")
@@ -116,7 +124,7 @@ func (d *YTDLPAudioDownloader) DownloadAudio(ctx context.Context, videoURL strin
 	output, err := cmdCombinedOutput(cmd)
 	if err != nil {
 		if _, statErr := osStat(downloadedFilePath); os.IsNotExist(statErr) {
-			return "", "", fmt.Errorf("yt-dlp command failed: %v\nOutput: %s", err, string(output))
+			return "", "", fmt.Errorf("yt-dlp command failed: %v\nOutput: %s", err, truncateOutput(string(output), maxErrorOutputChars))
 		}
 	}
 
@@ -126,4 +134,11 @@ func (d *YTDLPAudioDownloader) DownloadAudio(ctx context.Context, videoURL strin
 	}
 
 	return downloadedFilePath, videoID, nil
+}
+
+func truncateOutput(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	return s[:max] + "\n...[truncated]..."
 }
