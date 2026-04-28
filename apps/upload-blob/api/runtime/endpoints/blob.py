@@ -30,8 +30,20 @@ async def handle_blob_routes(request, env, method, path, query):
 
     if method == "GET" and normalized_path in ("/api/v1/files", "/api/v1/blob/files"):
         settings = await _require_authorized_settings(request, env)
+        no_cache = query.get("no_cache", ["false"])[0].lower() in {"1", "true", "yes", "on"}
         data = await list_blobs(settings)
-        return json_response({"count": len(data), "data": data})
+        response_headers = (
+            {
+                "cache-control": "no-store, max-age=0",
+                "pragma": "no-cache",
+            }
+            if no_cache
+            else None
+        )
+        return json_response(
+            {"count": len(data), "data": data, "cache_bypass": no_cache},
+            headers=response_headers,
+        )
 
     if method == "POST" and normalized_path in ("/api/v1/upload", "/api/v1/blob/upload"):
         settings = await _require_authorized_settings(request, env)

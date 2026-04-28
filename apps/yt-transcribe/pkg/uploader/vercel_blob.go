@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // HTTPClient interface for mocking purposes
@@ -35,11 +36,20 @@ func NewVercelBlobUploader(apiURL, apiToken string, client HTTPClient) *VercelBl
 }
 
 // Upload uploads the given content to Vercel Blob storage.
-func (v *VercelBlobUploader) Upload(ctx context.Context, content string, filename string) (string, error) {
+// The input value is treated as a blob path (folder path).
+func (v *VercelBlobUploader) Upload(ctx context.Context, content string, blobPath string) (string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
-	part, err := writer.CreateFormFile("file", filename)
+	// Keep legacy upload-blob naming semantics:
+	// file.name = "yt-transcribe_<platform>_<videoId>" (no extension)
+	// upload-blob appends ".txt" for non-md filenames.
+	formFileName := strings.ReplaceAll(strings.Trim(blobPath, "/"), "/", "_")
+	if formFileName == "" {
+		formFileName = "transcript"
+	}
+
+	part, err := writer.CreateFormFile("file", formFileName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create form file: %w", err)
 	}
@@ -52,8 +62,8 @@ func (v *VercelBlobUploader) Upload(ctx context.Context, content string, filenam
 
 	// URL-encode the filename to safely include it in the query string.
 	// allowOverwrite=true is required when reprocessing existing blobs.
-	encodedFilename := url.QueryEscape(filename)
-	uploadURL := fmt.Sprintf("%s?blob_path=%s&allow_overwrite=true", v.apiURL, encodedFilename)
+	encodedBlobPath := url.QueryEscape(strings.Trim(blobPath, "/"))
+	uploadURL := fmt.Sprintf("%s?blob_path=%s&allow_overwrite=true", v.apiURL, encodedBlobPath)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadURL, body)
 	if err != nil {

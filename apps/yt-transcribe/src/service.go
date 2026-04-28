@@ -66,7 +66,7 @@ func (s *TranscriptionServiceImpl) Execute(ctx context.Context, videoURL, output
 
 	// 3. Determine platform for upload path
 	platform := PLATFORM_OTHER
-	if strings.Contains(videoURL, "youtube.com") {
+	if strings.Contains(videoURL, "youtube.com") || strings.Contains(videoURL, "youtu.be/") {
 		platform = PLATFORM_YOUTUBE
 	} else if strings.Contains(videoURL, "instagram.com") {
 		platform = PLATFORM_INSTAGRAM

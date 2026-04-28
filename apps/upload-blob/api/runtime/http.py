@@ -20,11 +20,14 @@ class RuntimeHTTPError(Exception):
         super().__init__(detail)
 
 
-def json_response(payload, status=200):
+def json_response(payload, status=200, headers=None):
+    response_headers = {"content-type": "application/json"}
+    if headers:
+        response_headers.update(headers)
     return Response(
         json.dumps(payload),
         status=status,
-        headers={"content-type": "application/json"},
+        headers=response_headers,
     )
 
 
