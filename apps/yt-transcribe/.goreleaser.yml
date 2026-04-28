@@ -1,5 +1,8 @@
 version: 2
 
+monorepo:
+  tag_prefix: yt-transcribe-v
+
 # .goreleaser.yml
 # Visit https://goreleaser.com/customization/ for more options
 before:
