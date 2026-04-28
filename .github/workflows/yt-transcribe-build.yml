@@ -21,6 +21,10 @@ jobs:
       - name: Install dependencies
         run: |
           go mod download
+      - name: Sync module files
+        run: |
+          go mod tidy
+          go mod verify
       - name: Build
         run: |
           go build -v ./...
