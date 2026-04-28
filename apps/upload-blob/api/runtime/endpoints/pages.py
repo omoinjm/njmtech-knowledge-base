@@ -131,12 +131,19 @@ WORKER_OPENAPI = {
             "ListFilesResponse": {
                 "type": "object",
                 "properties": {
+                    "cache_bypass": {"type": "boolean", "example": False},
+                    "cache_source": {
+                        "type": "string",
+                        "enum": ["redis", "blob"],
+                        "example": "redis",
+                    },
+                    "count": {"type": "integer", "example": 26},
                     "data": {
                         "type": "array",
                         "items": {"$ref": "#/components/schemas/BlobGroup"},
-                    }
+                    },
                 },
-                "required": ["data"],
+                "required": ["cache_bypass", "cache_source", "count", "data"],
             },
             "UploadResponse": {
                 "type": "object",
@@ -230,6 +237,64 @@ WORKER_OPENAPI = {
             "get": {
                 "summary": "List all files",
                 "security": [{"bearerAuth": []}],
+                "parameters": [
+                    {
+                        "name": "no_cache",
+                        "in": "query",
+                        "required": False,
+                        "schema": {
+                            "type": "string",
+                            "enum": ["1", "true", "yes", "on", "0", "false", "no", "off"],
+                            "default": "false",
+                        },
+                        "description": "Bypass Redis cache and fetch directly from Blob.",
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Grouped file listing",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ListFilesResponse"}
+                            }
+                        },
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                },
+            }
+        },
+        "/api/v1/blob/files": {
+            "get": {
+                "summary": "List all files (alias)",
+                "security": [{"bearerAuth": []}],
+                "parameters": [
+                    {
+                        "name": "no_cache",
+                        "in": "query",
+                        "required": False,
+                        "schema": {
+                            "type": "string",
+                            "enum": ["1", "true", "yes", "on", "0", "false", "no", "off"],
+                            "default": "false",
+                        },
+                        "description": "Bypass Redis cache and fetch directly from Blob.",
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Grouped file listing",
@@ -332,9 +397,132 @@ WORKER_OPENAPI = {
                 },
             }
         },
+        "/api/v1/blob/upload": {
+            "post": {
+                "summary": "Upload a file (alias)",
+                "security": [{"bearerAuth": []}],
+                "parameters": [
+                    {
+                        "name": "blob_path",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "string", "default": "uploads"},
+                        "description": "Directory path in blob storage",
+                    },
+                    {
+                        "name": "allow_overwrite",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "boolean", "default": False},
+                        "description": "Allow overwriting existing files",
+                    },
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "description": "The file to upload",
+                                    }
+                                },
+                                "required": ["file"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "Upload succeeded",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/UploadResponse"}
+                            }
+                        },
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                },
+            }
+        },
         "/api/v1/delete": {
             "delete": {
                 "summary": "Delete a blob",
+                "security": [{"bearerAuth": []}],
+                "parameters": [
+                    {
+                        "name": "url",
+                        "in": "query",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Absolute URL of the blob to delete",
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Delete succeeded",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/DeleteResponse"}
+                            }
+                        },
+                    },
+                    "400": {
+                        "description": "Missing or invalid url query parameter",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+                            }
+                        },
+                    },
+                },
+            }
+        },
+        "/api/v1/blob/delete": {
+            "delete": {
+                "summary": "Delete a blob (alias)",
                 "security": [{"bearerAuth": []}],
                 "parameters": [
                     {
