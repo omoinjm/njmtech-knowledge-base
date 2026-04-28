@@ -63,6 +63,12 @@ func (d *YTDLPAudioDownloader) DownloadAudio(ctx context.Context, videoURL strin
 
 	// Build common arguments
 	commonArgs := []string{}
+	jsRuntimes := os.Getenv("YT_DLP_JS_RUNTIMES")
+	if jsRuntimes == "" {
+		// Default to node in headless/container environments where YouTube may require JS execution.
+		jsRuntimes = "node"
+	}
+	commonArgs = append(commonArgs, "--js-runtimes", jsRuntimes)
 	if d.cookiesFile != "" {
 		commonArgs = append(commonArgs, "--cookies", d.cookiesFile)
 	}

@@ -42,5 +42,9 @@ yt-transcribe # Specific to this project's executable
 # Local environment variables
 .env
 
+# Sensitive cookie exports
+docs/www.youtube.com_cookies.txt
+docs/www.youtube.com_cookies.b64
+
 # Executable files
 yt-transcribe

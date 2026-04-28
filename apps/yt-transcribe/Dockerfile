@@ -30,11 +30,11 @@ RUN CGO_ENABLED=0 go build -tags=infisical -ldflags="-w -s" -o /yt-transcribe .
 # Stage 2: Create the final, minimal image
 FROM alpine:3.21
 
-# Install runtime dependencies: ffmpeg, curl, cmake, build-base, python3, busybox-extras.
+# Install runtime dependencies: ffmpeg, curl, cmake, build-base, python3, nodejs, busybox-extras.
 # cmake and build-base are needed for building whisper.cpp.
 # python3 is required by yt-dlp.
 # busybox-extras provides crond for scheduling cron jobs.
-RUN apk add --no-cache ffmpeg curl cmake build-base git python3 busybox-extras
+RUN apk add --no-cache ffmpeg curl cmake build-base git python3 nodejs busybox-extras
 
 # Install yt-dlp from the latest release.
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \

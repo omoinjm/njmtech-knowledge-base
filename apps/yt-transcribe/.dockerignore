@@ -1,0 +1,10 @@
+.env
+.git
+.gitignore
+.idea
+.vscode
+docs/www.youtube.com_cookies.txt
+docs/www.youtube.com_cookies.b64
+node_modules
+*.test
+yt-transcribe
