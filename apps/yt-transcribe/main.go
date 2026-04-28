@@ -40,6 +40,13 @@ func handleFatalError(message string, err error) {
 }
 
 func main() {
+	// If explicit CLI args are provided (e.g. -db, -url, -reprocess-all),
+	// prioritize worker/CLI mode even when PORT is set by platforms like Railway.
+	if len(os.Args) > 1 {
+		runCLI()
+		return
+	}
+
 	if port := os.Getenv("PORT"); port != "" {
 		runServer(port)
 		return
