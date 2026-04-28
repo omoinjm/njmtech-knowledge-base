@@ -41,7 +41,7 @@ async def handle_blob_routes(request, env, method, path, query):
             else None
         )
         return json_response(
-            {"count": len(data), "data": data, "cache_bypass": no_cache},
+            {"cache_bypass": no_cache, "count": len(data), "data": data},
             headers=response_headers,
         )
 
