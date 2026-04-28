@@ -1,7 +1,12 @@
 from workers import File
 
 from api.runtime.auth import authorize
-from api.runtime.blob_client import build_blob_pathname, delete_blob, list_blobs, upload_blob
+from api.runtime.blob_client import (
+    build_blob_pathname,
+    delete_blob,
+    list_blobs,
+    upload_blob,
+)
 from api.runtime.http import RuntimeHTTPError, json_response
 
 
@@ -21,12 +26,12 @@ async def handle_blob_routes(request, env, method, path, query):
     if method == "GET" and path in ("/api/v1", "/api/v1/"):
         return json_response({"message": "Welcome to the Vercel Blob API"})
 
-    if method == "GET" and path == "/api/v1/files":
+    if method == "GET" and path in ("/api/v1/files", "/api/v1/blob/files"):
         settings = await _require_authorized_settings(request, env)
         data = await list_blobs(settings)
-        return json_response({"data": data})
+        return json_response({"count": len(data), "data": data})
 
-    if method == "POST" and path == "/api/v1/upload":
+    if method == "POST" and path in ("/api/v1/upload", "/api/v1/blob/upload"):
         settings = await _require_authorized_settings(request, env)
         form_data = await request.form_data()
         file = form_data.get("file")
@@ -64,7 +69,7 @@ async def handle_blob_routes(request, env, method, path, query):
             }
         )
 
-    if method == "DELETE" and path == "/api/v1/delete":
+    if method == "DELETE" and path in ("/api/v1/delete", "/api/v1/blob/delete"):
         settings = await _require_authorized_settings(request, env)
         url = query.get("url", [None])[0]
         if not url:
