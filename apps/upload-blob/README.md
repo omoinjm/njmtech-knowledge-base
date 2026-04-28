@@ -78,10 +78,15 @@ curl -X POST \
 *   **Headers:**
     *   `Authorization: Bearer YOUR_API_TOKEN`
 *   **Query Params:**
-    *   `no_cache` (optional): `1|true|yes|on` to force a no-store response for validation/debugging
+    *   `no_cache` (optional): `1|true|yes|on` to bypass Redis and fetch directly from Blob
 *   **Notes:**
     *   Trailing slash variants are supported (for example `/api/v1/blob/files/`).
-    *   When `no_cache` is enabled, response includes:
+    *   Default behavior (`no_cache` omitted/false): read from Redis cache first, then fallback to Blob and refresh cache.
+    *   `no_cache=1`: bypass Redis for this request, fetch from Blob, and refresh Redis cache.
+    *   Response includes:
+        *   `cache_source: "redis" | "blob"`
+        *   paths with only `.txt` files are included (`md_url` can be `null`)
+    *   When `no_cache` is enabled, response also includes:
         *   `cache_bypass: true` in JSON
         *   `Cache-Control: no-store, max-age=0`
         *   `Pragma: no-cache`

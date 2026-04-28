@@ -7,6 +7,7 @@ from api.runtime.blob_client import (
     list_blobs,
     upload_blob,
 )
+from api.runtime.cache import BLOB_FILES_CACHE_KEY, cache_get_json, cache_set_json
 from api.runtime.http import RuntimeHTTPError, json_response
 
 
@@ -31,7 +32,19 @@ async def handle_blob_routes(request, env, method, path, query):
     if method == "GET" and normalized_path in ("/api/v1/files", "/api/v1/blob/files"):
         settings = await _require_authorized_settings(request, env)
         no_cache = query.get("no_cache", ["false"])[0].lower() in {"1", "true", "yes", "on"}
-        data = await list_blobs(settings)
+        cache_source = "blob"
+        data = None
+
+        if not no_cache:
+            cached = await cache_get_json(settings, BLOB_FILES_CACHE_KEY)
+            if isinstance(cached, list):
+                data = cached
+                cache_source = "redis"
+
+        if data is None:
+            data = await list_blobs(settings)
+            await cache_set_json(settings, BLOB_FILES_CACHE_KEY, data, settings.CACHE_TTL)
+
         response_headers = (
             {
                 "cache-control": "no-store, max-age=0",
@@ -41,7 +54,12 @@ async def handle_blob_routes(request, env, method, path, query):
             else None
         )
         return json_response(
-            {"cache_bypass": no_cache, "count": len(data), "data": data},
+            {
+                "cache_bypass": no_cache,
+                "cache_source": cache_source,
+                "count": len(data),
+                "data": data,
+            },
             headers=response_headers,
         )
 
