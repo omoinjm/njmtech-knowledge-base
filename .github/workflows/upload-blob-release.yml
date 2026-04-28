@@ -1,4 +1,4 @@
-name: Python Package Release
+name: upload-blob | release-pypi
 
 on:
   push:

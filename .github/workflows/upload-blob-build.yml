@@ -1,4 +1,4 @@
-name: Python Docker CI
+name: upload-blob | build-and-docker
 on:
   push:
     branches: ["development", "staging"]

@@ -1,4 +1,4 @@
-name: Release YT Transcribe CLI
+name: yt-transcribe | release-github
 
 on:
   push:

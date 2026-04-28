@@ -1,4 +1,4 @@
-name: Python Docker CI
+name: yt-transcribe | build-and-docker
 on:
   push:
     branches: ["development", "staging"]

@@ -1,4 +1,4 @@
-name: Deploy Upload Blob Worker
+name: upload-blob | deploy-cloudflare
 
 on:
   push:
