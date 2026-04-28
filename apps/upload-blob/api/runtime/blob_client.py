@@ -71,17 +71,52 @@ def _sanitize_filename(filename: str) -> str:
     return sanitized or "file"
 
 
+def _sanitize_path_segment(segment: str) -> str:
+    cleaned = []
+    last_was_sep = False
+    for char in (segment or ""):
+        if char.isalnum() or char in {".", "_", "-"}:
+            cleaned.append(char)
+            last_was_sep = False
+        else:
+            if not last_was_sep:
+                cleaned.append("_")
+                last_was_sep = True
+    sanitized = "".join(cleaned).strip("._-")
+    return sanitized
+
+
+def _sanitize_blob_path(blob_path: str) -> str:
+    parts = [p for p in (blob_path or "").split("/") if p]
+    cleaned_parts = []
+    for part in parts:
+        cleaned = _sanitize_path_segment(part)
+        if cleaned:
+            cleaned_parts.append(cleaned)
+    return "/".join(cleaned_parts)
+
+
 def build_blob_pathname(settings, blob_path: str, filename: str) -> str:
     prefix = settings.BLOB_PREFIX.rstrip("/")
-    clean_blob_path = (blob_path or "").strip("/")
+    clean_blob_path = _sanitize_blob_path((blob_path or "").strip("/"))
     sanitized_filename = _sanitize_filename(filename)
 
-    if sanitized_filename.lower().endswith((".md", ".markdown")):
+    parts = [prefix]
+
+    # If blob_path already targets a specific file (for example `folder/name.srt`),
+    # use it directly and do not append an additional filename.
+    path_parts = [p for p in clean_blob_path.split("/") if p]
+    last_segment = path_parts[-1] if path_parts else ""
+    if "." in last_segment and not last_segment.startswith(".") and not last_segment.endswith("."):
+        if clean_blob_path:
+            parts.append(clean_blob_path)
+        return "/".join(parts)
+
+    if "." in sanitized_filename and not sanitized_filename.endswith("."):
         leaf_name = sanitized_filename
     else:
         leaf_name = f"{sanitized_filename}.txt"
 
-    parts = [prefix]
     if clean_blob_path:
         parts.append(clean_blob_path)
     parts.append(leaf_name)
@@ -99,8 +134,9 @@ async def upload_blob(settings, pathname: str, file_bytes: bytes, content_type: 
     if allow_overwrite:
         headers["x-allow-overwrite"] = "1"
     body = Blob(file_bytes, content_type=content_type).js_object
+    query = urlencode({"pathname": pathname})
     resp = await fetch(
-        f"https://vercel.com/api/blob/?pathname={pathname}",
+        f"https://vercel.com/api/blob/?{query}",
         method="PUT",
         headers=headers,
         body=body,
@@ -111,7 +147,7 @@ async def upload_blob(settings, pathname: str, file_bytes: bytes, content_type: 
             details = await resp.json()
         except Exception:
             details = await resp.text()
-        raise RuntimeError(f"Blob upload failed (status {resp.status}): {details}")
+        raise RuntimeError(f"Blob upload failed for pathname '{pathname}' (status {resp.status}): {details}")
 
     return await resp.json()
 

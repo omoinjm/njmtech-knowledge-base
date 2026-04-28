@@ -14,6 +14,19 @@ import (
 // fetchFromInfisical uses the Infisical Go SDK to fetch a secret from a given project/environment.
 // This file is only compiled when building with `-tags=infisical`.
 func fetchFromInfisical(ctx context.Context, secretKey, projectID, environment, secretPath string) (string, error) {
+	// Backward compatibility: map legacy env names to Universal Auth env names
+	// expected by the Infisical SDK if the newer vars are not provided.
+	if os.Getenv("INFISICAL_UNIVERSAL_AUTH_CLIENT_ID") == "" {
+		if legacy := os.Getenv("INFISICAL_CLIENT_ID"); legacy != "" {
+			_ = os.Setenv("INFISICAL_UNIVERSAL_AUTH_CLIENT_ID", legacy)
+		}
+	}
+	if os.Getenv("INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET") == "" {
+		if legacy := os.Getenv("INFISICAL_CLIENT_SECRET"); legacy != "" {
+			_ = os.Setenv("INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET", legacy)
+		}
+	}
+
 	client := infisical.NewInfisicalClient(ctx, infisical.Config{
 		SiteUrl:          os.Getenv("INFISICAL_SITE_URL"),
 		AutoTokenRefresh: true,
