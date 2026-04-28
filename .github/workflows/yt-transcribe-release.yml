@@ -25,6 +25,25 @@ jobs:
         with:
           go-version-file: apps/yt-transcribe/go.mod
 
+      - name: Prepare Semver Tag For GoReleaser
+        run: |
+          set -euo pipefail
+          RAW_TAG="${GITHUB_REF_NAME}"
+          SEMVER_TAG="${RAW_TAG#yt-transcribe-}"
+
+          if [ "${SEMVER_TAG}" = "${RAW_TAG}" ]; then
+            echo "Expected tag format yt-transcribe-vX.Y.Z, got: ${RAW_TAG}"
+            exit 1
+          fi
+
+          if ! echo "${SEMVER_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$'; then
+            echo "Derived tag is not semver-like: ${SEMVER_TAG}"
+            exit 1
+          fi
+
+          git tag -f "${SEMVER_TAG}" "${GITHUB_SHA}"
+          git checkout "${SEMVER_TAG}"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

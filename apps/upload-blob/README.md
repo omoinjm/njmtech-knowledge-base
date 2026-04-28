@@ -46,15 +46,21 @@ This is a Cloudflare Worker API for uploading and managing files in Vercel Blob 
     npm run deploy
     ```
 
-## API Endpoint
+## API Endpoints
 
 ### Upload File
 
-*   **URL:** `/api/v1/upload`
+*   **URL:** `/api/v1/upload` or `/api/v1/blob/upload`
 *   **Method:** `POST`
 *   **Headers:**
     *   `Authorization: Bearer YOUR_API_TOKEN`
 *   **Form Data:** `file` (the file to upload)
+*   **Query Params:**
+    *   `blob_path` (optional): target folder path under the configured prefix
+    *   `allow_overwrite` (optional): `true|false` (defaults to `false`)
+*   **Notes:**
+    *   Trailing slash variants are supported (for example `/api/v1/upload/`).
+    *   Non-markdown filenames are stored as `.txt` by the API path builder.
 
 **Example using `curl`:**
 
@@ -62,5 +68,27 @@ This is a Cloudflare Worker API for uploading and managing files in Vercel Blob 
 curl -X POST \
   -H "Authorization: Bearer YOUR_API_TOKEN" \
   -F "file=@/path/to/your/file.txt" \
-  http://127.0.0.1:8787/api/v1/upload
+  "http://127.0.0.1:8787/api/v1/blob/upload?blob_path=yt-transcribe/youtube/dQw4w9WgXcQ&allow_overwrite=true"
+```
+
+### List Files
+
+*   **URL:** `/api/v1/files` or `/api/v1/blob/files`
+*   **Method:** `GET`
+*   **Headers:**
+    *   `Authorization: Bearer YOUR_API_TOKEN`
+*   **Query Params:**
+    *   `no_cache` (optional): `1|true|yes|on` to force a no-store response for validation/debugging
+*   **Notes:**
+    *   Trailing slash variants are supported (for example `/api/v1/blob/files/`).
+    *   When `no_cache` is enabled, response includes:
+        *   `cache_bypass: true` in JSON
+        *   `Cache-Control: no-store, max-age=0`
+        *   `Pragma: no-cache`
+
+**Example using `curl`:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN" \
+  "http://127.0.0.1:8787/api/v1/blob/files?no_cache=1"
 ```
