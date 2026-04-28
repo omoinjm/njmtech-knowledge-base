@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from workers import Blob, fetch
 
@@ -126,47 +126,35 @@ def build_blob_pathname(settings, blob_path: str, filename: str) -> str:
 async def upload_blob(settings, pathname: str, file_bytes: bytes, content_type: str | None, allow_overwrite: bool = False):
     headers = {
         "authorization": f"Bearer {settings.BLOB_READ_WRITE_TOKEN}",
-        "x-vercel-blob-access": "public",
+        "x-content-disposition": "inline",
     }
     if content_type:
         headers["x-content-type"] = content_type
         headers["content-type"] = content_type
+    # Deterministic pathname (no random suffix), matching the verified working curl.
+    headers["x-add-random-suffix"] = "false"
+
+    # Preserve overwrite semantics via a deterministic path.
+    # If overwrite is disallowed, let the upstream service enforce uniqueness/conflicts.
     if allow_overwrite:
         headers["x-allow-overwrite"] = "1"
+
     body = Blob(file_bytes, content_type=content_type).js_object
-    upload_urls = [
-        # Standard query encoding.
-        f"https://vercel.com/api/blob/?{urlencode({'pathname': pathname})}",
-        # Preserve folder separators in case upstream parser expects literal slashes.
-        f"https://vercel.com/api/blob/?pathname={quote(pathname, safe='/._-')}",
-        # Raw fallback for strict/legacy parsers.
-        f"https://vercel.com/api/blob/?pathname={pathname}",
-    ]
-
-    last_error = None
-    for url in upload_urls:
-        resp = await fetch(
-            url,
-            method="PUT",
-            headers=headers,
-            body=body,
-        )
-        if resp.status in (200, 201):
-            return await resp.json()
-        try:
-            details = await resp.json()
-        except Exception:
-            details = await resp.text()
-        last_error = (resp.status, details, url)
-
-        # Retry only when pathname validation fails; otherwise fail fast.
-        details_text = str(details).lower()
-        if resp.status != 400 or "invalid pathname" not in details_text:
-            break
-
-    status, details, url = last_error
+    upload_url = f"https://blob.vercel-storage.com/{pathname.lstrip('/')}"
+    resp = await fetch(
+        upload_url,
+        method="PUT",
+        headers=headers,
+        body=body,
+    )
+    if resp.status in (200, 201):
+        return await resp.json()
+    try:
+        details = await resp.json()
+    except Exception:
+        details = await resp.text()
     raise RuntimeError(
-        f"Blob upload failed for pathname '{pathname}' via '{url}' (status {status}): {details}"
+        f"Blob upload failed for pathname '{pathname}' via '{upload_url}' (status {resp.status}): {details}"
     )
 
 
