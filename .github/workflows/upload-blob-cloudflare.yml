@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/upload-blob/**"
-      - ".github/workflows/upload-blob/cloudflare.yml"
+      - ".github/workflows/upload-blob-cloudflare.yml"
   workflow_dispatch:
 
 concurrency:

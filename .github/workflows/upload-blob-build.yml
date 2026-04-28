@@ -4,7 +4,7 @@ on:
     branches: ["development", "staging"]
     paths:
       - "apps/upload-blob/**"
-      - ".github/workflows/upload-blob/build.yml"
+      - ".github/workflows/upload-blob-build.yml"
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
