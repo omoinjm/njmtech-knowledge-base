@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from workers import Blob, fetch
 
@@ -134,22 +134,40 @@ async def upload_blob(settings, pathname: str, file_bytes: bytes, content_type: 
     if allow_overwrite:
         headers["x-allow-overwrite"] = "1"
     body = Blob(file_bytes, content_type=content_type).js_object
-    query = urlencode({"pathname": pathname})
-    resp = await fetch(
-        f"https://vercel.com/api/blob/?{query}",
-        method="PUT",
-        headers=headers,
-        body=body,
-    )
+    upload_urls = [
+        # Standard query encoding.
+        f"https://vercel.com/api/blob/?{urlencode({'pathname': pathname})}",
+        # Preserve folder separators in case upstream parser expects literal slashes.
+        f"https://vercel.com/api/blob/?pathname={quote(pathname, safe='/._-')}",
+        # Raw fallback for strict/legacy parsers.
+        f"https://vercel.com/api/blob/?pathname={pathname}",
+    ]
 
-    if resp.status not in (200, 201):
+    last_error = None
+    for url in upload_urls:
+        resp = await fetch(
+            url,
+            method="PUT",
+            headers=headers,
+            body=body,
+        )
+        if resp.status in (200, 201):
+            return await resp.json()
         try:
             details = await resp.json()
         except Exception:
             details = await resp.text()
-        raise RuntimeError(f"Blob upload failed for pathname '{pathname}' (status {resp.status}): {details}")
+        last_error = (resp.status, details, url)
 
-    return await resp.json()
+        # Retry only when pathname validation fails; otherwise fail fast.
+        details_text = str(details).lower()
+        if resp.status != 400 or "invalid pathname" not in details_text:
+            break
+
+    status, details, url = last_error
+    raise RuntimeError(
+        f"Blob upload failed for pathname '{pathname}' via '{url}' (status {status}): {details}"
+    )
 
 
 async def delete_blob(settings, urls: list[str]):

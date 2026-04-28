@@ -74,7 +74,8 @@ func (s *TranscriptionServiceImpl) Execute(ctx context.Context, videoURL, output
 
 	// 4. Upload the transcription
 	fmt.Println("Uploading transcription...")
-	uploadPath := fmt.Sprintf("%s/%s/%s.txt", APP_NAME, platform, videoID)
+	fileName := fmt.Sprintf("%s_%s_%s.txt", APP_NAME, platform, videoID)
+	uploadPath := fmt.Sprintf("%s/%s/%s/%s", APP_NAME, platform, videoID, fileName)
 	rawResponse, err := s.Uploader.Upload(ctx, transcription, uploadPath)
 	if err != nil {
 		return "", fmt.Errorf("error uploading transcription: %w", err)
