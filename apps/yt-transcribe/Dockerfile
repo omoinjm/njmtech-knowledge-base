@@ -1,6 +1,6 @@
 # Use a multi-stage build to create a lean final image.
 # Stage 1: Build the Go application
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25.5-alpine3.21 AS builder
 
 # Install necessary dependencies: git for fetching Go modules,
 # and build-base for cgo if any dependencies require it.
@@ -9,18 +9,22 @@ RUN apk add --no-cache git build-base
 # Set the working directory inside the container.
 WORKDIR /app
 
-# Copy go.mod and go.sum to download dependencies first,
-# leveraging Docker's layer caching. NOTE: when enabling build-tags that pull
-# additional imports, it's safer to run 'go mod download' after copying the full
-# source so the module graph includes all build-tagged files.
+# The build environment used here cannot reach proxy.golang.org over IPv6.
+# Fetch modules directly from their source repositories instead of relying on
+# the public Go proxy / checksum service.
+ENV GOPROXY=direct
+ENV GOSUMDB=off
+
+# Copy go.mod and go.sum first so the module graph can be resolved before the
+# rest of the source is added.
 COPY go.mod go.sum ./
 
 # Copy the rest of the application's source code.
 COPY . .
 
-# Add the Infisical SDK to the module graph and download dependencies.
-RUN go get github.com/infisical/go-sdk@v0.7.1
-RUN go mod download
+# Resolve and normalize the module graph for the infisical build tag before
+# compiling. This avoids "updates to go.mod needed" failures during the build.
+RUN go mod tidy
 
 # Build the Go application with the 'infisical' build tag (Infisical provider compiled in).
 # -ldflags="-w -s" strips debug information, reducing the binary size.

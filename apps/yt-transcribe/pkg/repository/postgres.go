@@ -48,11 +48,16 @@ func (r *PostgresMediaItemRepository) Close(_ context.Context) error {
 // inside a short transaction. Using SKIP LOCKED prevents concurrent workers from
 // selecting the same row.
 // Returns nil, nil when every item has already been processed.
-func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context) (*MediaItem, error) {
+func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context, excludedIDs []string) (*MediaItem, error) {
+	if excludedIDs == nil {
+		excludedIDs = []string{}
+	}
+
 	const query = `
 		SELECT id, url, platform, video_id
 		FROM   media_items
 		WHERE  transcript_url IS NULL
+		AND    NOT (id = ANY($1::text[]))
 		ORDER  BY created_at ASC
 		FOR UPDATE SKIP LOCKED
 		LIMIT  1`
@@ -63,7 +68,7 @@ func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context) 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	row := tx.QueryRow(ctx, query)
+	row := tx.QueryRow(ctx, query, excludedIDs)
 
 	var item MediaItem
 	err = row.Scan(&item.ID, &item.URL, &item.Platform, &item.VideoID)

@@ -8,17 +8,17 @@ import (
 
 // mockRepo is a test double for MediaItemRepository.
 type mockRepo struct {
-	fetchResult  *MediaItem
-	fetchErr     error
+	fetchResult    *MediaItem
+	fetchErr       error
 	fetchAllResult []MediaItem
 	fetchAllErr    error
-	updateErr    error
+	updateErr      error
 
 	lastUpdateID  string
 	lastUpdateURL string
 }
 
-func (m *mockRepo) FetchNextUnprocessed(_ context.Context) (*MediaItem, error) {
+func (m *mockRepo) FetchNextUnprocessed(_ context.Context, _ []string) (*MediaItem, error) {
 	return m.fetchResult, m.fetchErr
 }
 
@@ -44,7 +44,7 @@ func TestFetchNextUnprocessed_ReturnsItem(t *testing.T) {
 	}
 	repo := &mockRepo{fetchResult: expected}
 
-	item, err := repo.FetchNextUnprocessed(context.Background())
+	item, err := repo.FetchNextUnprocessed(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestFetchNextUnprocessed_ReturnsItem(t *testing.T) {
 func TestFetchNextUnprocessed_ReturnsNilWhenEmpty(t *testing.T) {
 	repo := &mockRepo{fetchResult: nil, fetchErr: nil}
 
-	item, err := repo.FetchNextUnprocessed(context.Background())
+	item, err := repo.FetchNextUnprocessed(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestFetchNextUnprocessed_PropagatesError(t *testing.T) {
 	expectedErr := errors.New("connection refused")
 	repo := &mockRepo{fetchErr: expectedErr}
 
-	_, err := repo.FetchNextUnprocessed(context.Background())
+	_, err := repo.FetchNextUnprocessed(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}

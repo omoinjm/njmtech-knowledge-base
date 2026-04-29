@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	api "yt-transcribe/pkg/api"
 	"yt-transcribe/pkg/bootstrap"
@@ -17,14 +18,21 @@ import (
 )
 
 const (
-	DEFAULT_VIDEO_URL  = "https://www.youtube.com/watch?v=rdWZo5PD9Ek"
-	URL_FLAG           = "url"
-	OUTPUT_FLAG        = "output"
-	DB_FLAG            = "db"
-	REPROCESS_ALL_FLAG = "reprocess-all"
-	COOKIES_FILE_FLAG  = "cookies-file"
+	DEFAULT_VIDEO_URL    = "https://www.youtube.com/watch?v=rdWZo5PD9Ek"
+	URL_FLAG             = "url"
+	OUTPUT_FLAG          = "output"
+	DB_FLAG              = "db"
+	REPROCESS_ALL_FLAG   = "reprocess-all"
+	COOKIES_FILE_FLAG    = "cookies-file"
 	COOKIES_BROWSER_FLAG = "cookies-from-browser"
 )
+
+func retryStatePath() string {
+	if path := os.Getenv("YT_TRANSCRIBE_RETRY_STATE_FILE"); path != "" {
+		return path
+	}
+	return defaultRetryStateFile
+}
 
 type healthResponse struct {
 	Name   string `json:"name"`
@@ -167,12 +175,26 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 	}
 	defer repo.Close(ctx)
 
-	item, err := repo.FetchNextUnprocessed(ctx)
+	retryPath := retryStatePath()
+	state, err := loadRetryState(retryPath)
+	if err != nil {
+		log.Printf("Warning: failed to load retry state from %s: %v", retryPath, err)
+		state = &retryState{Items: map[string]retryEntry{}}
+	}
+
+	now := time.Now()
+	blockedIDs := state.blockedIDs(now)
+
+	item, err := repo.FetchNextUnprocessed(ctx, blockedIDs)
 	if err != nil {
 		handleFatalError("Failed to fetch next unprocessed item", err)
 	}
 	if item == nil {
-		fmt.Println("No unprocessed items found in the database. Nothing to do.")
+		if nextRetry, ok := state.earliestNextAttempt(now); ok {
+			fmt.Printf("No eligible items are ready yet. Next retry after %s.\n", nextRetry.Format(time.RFC3339))
+		} else {
+			fmt.Println("No unprocessed items found in the database. Nothing to do.")
+		}
 		return
 	}
 
@@ -181,11 +203,26 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 
 	blobURL, err := svc.Execute(ctx, item.URL, outputDir)
 	if err != nil {
-		handleFatalError("Error executing transcription service", err)
+		entry := state.recordFailure(item.ID, err, time.Now())
+		if saveErr := saveRetryState(retryPath, state); saveErr != nil {
+			log.Printf("Warning: failed to save retry state: %v", saveErr)
+		}
+		log.Printf("Transcription failed for id %s; retry scheduled for %s", item.ID, entry.NextAttempt.Format(time.RFC3339))
+		return
 	}
 
 	if err := repo.UpdateTranscriptURL(ctx, item.ID, blobURL); err != nil {
-		handleFatalError("Transcription succeeded but failed to update transcript_url in database", err)
+		entry := state.recordFailure(item.ID, err, time.Now())
+		if saveErr := saveRetryState(retryPath, state); saveErr != nil {
+			log.Printf("Warning: failed to save retry state: %v", saveErr)
+		}
+		log.Printf("Transcription succeeded but db update failed for id %s; retry scheduled for %s", item.ID, entry.NextAttempt.Format(time.RFC3339))
+		return
+	}
+
+	state.clear(item.ID)
+	if err := saveRetryState(retryPath, state); err != nil {
+		log.Printf("Warning: failed to clear retry state: %v", err)
 	}
 
 	fmt.Printf("transcript_url updated in database for id %s\n", item.ID)

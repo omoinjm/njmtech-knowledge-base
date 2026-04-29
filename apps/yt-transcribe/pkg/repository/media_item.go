@@ -14,8 +14,9 @@ type MediaItem struct {
 // MediaItemRepository defines the database operations needed by the transcription pipeline.
 type MediaItemRepository interface {
 	// FetchNextUnprocessed returns the oldest media_items row whose transcript_url is NULL.
-	// Returns nil, nil when there are no unprocessed items.
-	FetchNextUnprocessed(ctx context.Context) (*MediaItem, error)
+	// Rows whose IDs appear in excludedIDs are skipped.
+	// Returns nil, nil when there are no eligible unprocessed items.
+	FetchNextUnprocessed(ctx context.Context, excludedIDs []string) (*MediaItem, error)
 
 	// FetchAll returns every row in media_items ordered by created_at ASC.
 	// Used by the reprocess-all mode to regenerate transcripts for existing records.
