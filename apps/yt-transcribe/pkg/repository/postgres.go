@@ -44,7 +44,9 @@ func (r *PostgresMediaItemRepository) Close(_ context.Context) error {
 	return nil
 }
 
-// FetchNextUnprocessed returns the oldest row in media_items where transcript_url IS NULL.
+// FetchNextUnprocessed atomically claims one row for processing by taking a row lock
+// inside a short transaction. Using SKIP LOCKED prevents concurrent workers from
+// selecting the same row.
 // Returns nil, nil when every item has already been processed.
 func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context) (*MediaItem, error) {
 	const query = `
@@ -52,17 +54,27 @@ func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context) 
 		FROM   media_items
 		WHERE  transcript_url IS NULL
 		ORDER  BY created_at ASC
+		FOR UPDATE SKIP LOCKED
 		LIMIT  1`
 
-	row := r.pool.QueryRow(ctx, query)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction for next unprocessed item: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	row := tx.QueryRow(ctx, query)
 
 	var item MediaItem
-	err := row.Scan(&item.ID, &item.URL, &item.Platform, &item.VideoID)
+	err = row.Scan(&item.ID, &item.URL, &item.Platform, &item.VideoID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch next unprocessed item: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction for next unprocessed item: %w", err)
 	}
 	return &item, nil
 }

@@ -53,7 +53,8 @@ COPY --from=builder /yt-transcribe /usr/local/bin/
 
 # Copy the entrypoint script and make it executable.
 COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY run-db-job.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/run-db-job.sh
 
 # Set the entrypoint to manage cron scheduling.
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

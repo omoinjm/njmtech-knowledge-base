@@ -25,7 +25,7 @@ fi
 
 # Create crontab for running yt-transcribe every 15 minutes
 # Output is piped to tee so it appears in docker logs AND a log file
-CRONTAB_CONTENT="*/15 * * * * /usr/local/bin/yt-transcribe -db 2>&1 | tee -a /tmp/yt-transcribe.log"
+CRONTAB_CONTENT="*/15 * * * * /usr/local/bin/run-db-job.sh 2>&1 | tee -a /tmp/yt-transcribe.log"
 
 # Write crontab to the default cron directory
 echo "$CRONTAB_CONTENT" | crontab -
