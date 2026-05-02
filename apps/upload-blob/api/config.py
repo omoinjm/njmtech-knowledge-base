@@ -10,12 +10,17 @@ class Settings:
     Centralized configuration management to follow SOLID principles (SRP).
     """
 
-    VERCEL_BLOB_API_TOKEN: str
-    BLOB_READ_WRITE_TOKEN: str
+    UPLOAD_BLOB_API_TOKEN: str
+    CLOUDFLARE_S3_API_URL: str
+    CLOUDFLARE_S3_ACCESS_KEY_ID: str
+    CLOUDFLARE_S3_SECRET_ACCESS_KEY: str
+    CLOUDFLARE_S3_BUCKET: str
     REDIS_URL: str | None = None
     CRON_SECRET: str | None = None
     CACHE_TTL: int = 86400  # 24 hours
     BLOB_PREFIX: str = "njmtech-blob-api/"
+    CLOUDFLARE_S3_REGION: str = "auto"
+    CLOUDFLARE_S3_PUBLIC_BASE_URL: str | None = None
 
     @classmethod
     def load(cls, env_source=None) -> "Settings":
@@ -34,39 +39,20 @@ class Settings:
             # Fallback to os.environ (where Infisical injected them)
             return os.getenv(key, default)
 
-        api_token = get_env("VERCEL_BLOB_API_TOKEN")
-        blob_read_write_token = get_env("BLOB_READ_WRITE_TOKEN")
-
-        # Standardize aliases where available.
-        if api_token and not get_env("VERCEL_BLOB_API_TOKEN"):
-            os.environ["VERCEL_BLOB_API_TOKEN"] = api_token
-            if env_source is not None:
-                if isinstance(env_source, dict):
-                    env_source["VERCEL_BLOB_API_TOKEN"] = api_token
-                elif hasattr(env_source, "__setattr__"):
-                    try:
-                        setattr(env_source, "VERCEL_BLOB_API_TOKEN", api_token)
-                    except Exception:
-                        pass
-
-        if blob_read_write_token and not get_env("BLOB_READ_WRITE_TOKEN"):
-            os.environ["BLOB_READ_WRITE_TOKEN"] = blob_read_write_token
-            if env_source is not None:
-                if isinstance(env_source, dict):
-                    env_source["BLOB_READ_WRITE_TOKEN"] = blob_read_write_token
-                elif hasattr(env_source, "__setattr__"):
-                    try:
-                        setattr(env_source, "BLOB_READ_WRITE_TOKEN", blob_read_write_token)
-                    except Exception:
-                        pass
+        api_token = get_env("UPLOAD_BLOB_API_TOKEN")
 
         return cls(
-            VERCEL_BLOB_API_TOKEN=api_token,
-            BLOB_READ_WRITE_TOKEN=blob_read_write_token,
+            UPLOAD_BLOB_API_TOKEN=api_token,
+            CLOUDFLARE_S3_API_URL=get_env("CLOUDFLARE_S3_API_URL"),
+            CLOUDFLARE_S3_ACCESS_KEY_ID=get_env("CLOUDFLARE_S3_ACCESS_KEY_ID"),
+            CLOUDFLARE_S3_SECRET_ACCESS_KEY=get_env("CLOUDFLARE_S3_SECRET_ACCESS_KEY"),
+            CLOUDFLARE_S3_BUCKET=get_env("CLOUDFLARE_S3_BUCKET"),
             REDIS_URL=get_env("REDIS_URL"),
             CRON_SECRET=get_env("CRON_SECRET"),
             CACHE_TTL=int(get_env("CACHE_TTL", "86400")),
             BLOB_PREFIX=get_env("BLOB_PREFIX", "njmtech-blob-api/"),
+            CLOUDFLARE_S3_REGION=get_env("CLOUDFLARE_S3_REGION", "auto"),
+            CLOUDFLARE_S3_PUBLIC_BASE_URL=get_env("CLOUDFLARE_S3_PUBLIC_BASE_URL"),
         )
 
 
@@ -74,6 +60,12 @@ class Settings:
 try:
     settings = Settings.load()
 except Exception:
-    settings = Settings(VERCEL_BLOB_API_TOKEN="", BLOB_READ_WRITE_TOKEN="")
+    settings = Settings(
+        UPLOAD_BLOB_API_TOKEN="",
+        CLOUDFLARE_S3_API_URL="",
+        CLOUDFLARE_S3_ACCESS_KEY_ID="",
+        CLOUDFLARE_S3_SECRET_ACCESS_KEY="",
+        CLOUDFLARE_S3_BUCKET="",
+    )
 
-API_TOKEN = settings.VERCEL_BLOB_API_TOKEN
+API_TOKEN = settings.UPLOAD_BLOB_API_TOKEN

@@ -7,9 +7,9 @@ This project is built using the following technologies:
 *   🐍 **Python**: The core programming language.
 *   ☁️ **Cloudflare Workers (Python Workers)**: Primary runtime and deployment platform.
 *   🧰 **Wrangler / PyWrangler**: Local development and deployment tooling for Cloudflare Workers.
-*   ☁️ **Vercel Blob**: A serverless, scalable, and cost-efficient object storage solution for the web.
+*   ☁️ **Cloudflare S3 / R2**: The S3-compatible object storage backend for uploads, listing, and deletes.
 
-This is a Cloudflare Worker API for uploading and managing files in Vercel Blob storage.
+This is a Cloudflare Worker API for uploading and managing files in Cloudflare's S3-compatible object storage.
 
 ## Setup
 
@@ -24,13 +24,19 @@ This is a Cloudflare Worker API for uploading and managing files in Vercel Blob 
 
 2.  **Set up environment variables:**
 
-    Create a `.env` file in the root of the project and add your Vercel Blob read-write token:
+    Create a `.env` file in the root of the project and add the API token plus the Cloudflare storage credentials:
 
-    ```
-    BLOB_READ_WRITE_TOKEN="YOUR_BLOB_READ_WRITE_TOKEN"
+    ```bash
+    UPLOAD_BLOB_API_TOKEN="YOUR_UPLOAD_BLOB_API_TOKEN"
+    CLOUDFLARE_S3_API_URL="https://<account-id>.r2.cloudflarestorage.com"
+    CLOUDFLARE_S3_ACCESS_KEY_ID="YOUR_ACCESS_KEY_ID"
+    CLOUDFLARE_S3_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
+    CLOUDFLARE_S3_BUCKET="YOUR_BUCKET_NAME"
+    CLOUDFLARE_S3_REGION="auto"
+    CLOUDFLARE_S3_PUBLIC_BASE_URL="https://pub-xxxxxxxxxxxxxxxx.r2.dev"
     ```
 
-    Replace `"YOUR_BLOB_READ_WRITE_TOKEN"` with your actual token.
+    `CLOUDFLARE_S3_PUBLIC_BASE_URL` is optional but recommended when your public download host differs from the authenticated S3 API endpoint.
 
 3.  **Run the application:**
 
@@ -78,11 +84,11 @@ curl -X POST \
 *   **Headers:**
     *   `Authorization: Bearer YOUR_API_TOKEN`
 *   **Query Params:**
-    *   `no_cache` (optional): `1|true|yes|on` to bypass Redis and fetch directly from Blob
+    *   `no_cache` (optional): `1|true|yes|on` to bypass Redis and fetch directly from object storage
 *   **Notes:**
     *   Trailing slash variants are supported (for example `/api/v1/blob/files/`).
-    *   Default behavior (`no_cache` omitted/false): read from Redis cache first, then fallback to Blob and refresh cache.
-    *   `no_cache=1`: bypass Redis for this request, fetch from Blob, and refresh Redis cache.
+    *   Default behavior (`no_cache` omitted/false): read from Redis cache first, then fallback to object storage and refresh cache.
+    *   `no_cache=1`: bypass Redis for this request, fetch from object storage, and refresh Redis cache.
     *   Response includes:
         *   `cache_source: "redis" | "blob"`
         *   paths with only `.txt` files are included (`md_url` can be `null`)

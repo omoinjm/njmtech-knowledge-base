@@ -27,8 +27,8 @@ services:
 
   yt-transcribe:
     build:
-      context: .
-      dockerfile: apps/yt-transcribe/Dockerfile
+      context: ./apps/yt-transcribe
+      dockerfile: Dockerfile
     env_file:
       - environments/yt-transcribe.env
     networks:
@@ -39,8 +39,8 @@ services:
 
   blob-cron:
     build:
-      context: .
-      dockerfile: apps/blob-cron/Dockerfile
+      context: ./apps/blob-cron
+      dockerfile: Dockerfile
     env_file:
       - environments/blob-cron.env
     networks:

@@ -1,0 +1,29 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "blob-cron-worker",
+  "main": "./worker.mjs",
+  "compatibility_date": "2026-05-02",
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
+  "containers": [
+    {
+      "class_name": "BlobCronContainer",
+      "image": "./Dockerfile"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BLOB_CRON_CONTAINER",
+        "class_name": "BlobCronContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["BlobCronContainer"]
+    }
+  ]
+}

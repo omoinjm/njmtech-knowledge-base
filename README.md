@@ -8,14 +8,15 @@ The monorepo is organized using **Nx** and **pnpm workspaces**, consolidating fo
 
 ### Applications (`apps/`)
 - **`media` (Next.js 15 / TS / Turbopack)**: The central dashboard and entry point. Saves video metadata to the database.
-- **`upload-blob` (Python / FastAPI)**: A specialized API for interacting with Vercel Blob storage (upload, delete, list).
-- **`yt-transcribe` (Go)**: A high-performance background service that downloads audio from video platforms, transcribes it using `whisper.cpp`, and uploads the result.
-- **`blob-cron` (Python / Poetry)**: A scheduled job that identifies new transcripts in blob storage and uses AI (via Ollama) to transform them into Markdown.
+- **`upload-blob` (Python / Cloudflare Workers)**: A specialized API for interacting with Cloudflare's S3-compatible object storage (upload, delete, list).
+- **`yt-transcribe` (Go)**: A high-performance background service that downloads audio from video platforms, transcribes it using `whisper.cpp`, and uploads the result. It is orchestrated via Cloudflare Workers + Containers for API and batch modes.
+- **`blob-cron` (Python / Poetry)**: A scheduled job that identifies new transcripts in object storage and uses AI (via Ollama) to transform them into Markdown. It is orchestrated via Cloudflare Workers + Containers.
 
 ### Infrastructure
 - **Nx**: Orchestrates builds, tests, and development across all languages.
 - **Infisical**: Centralized secret management for all four applications.
-- **Vercel Blob Storage**: The primary storage for raw transcripts and processed documents.
+- **Cloudflare S3 / R2**: The primary storage for raw transcripts and processed documents.
+- **Cloudflare Containers**: Runtime for `yt-transcribe` and `blob-cron`, scheduled and proxied by Workers.
 - **Neon (Postgres)**: The database for media metadata.
 
 ---

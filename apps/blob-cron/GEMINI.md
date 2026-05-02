@@ -2,12 +2,12 @@
 
 ## Project Overview
 
-This project is a Python-based cron job designed to automate the process of scanning a Vercel Blob Storage container, identifying specific text files, and using an AI model to transform them into structured Markdown documents. The application is built with a modular architecture, separating concerns for blob storage interaction, file processing, and directory scanning.
+This project is a Python-based cron job designed to automate the process of scanning transcript files through the `upload-blob` API backed by Cloudflare S3 / R2, identifying specific text files, and using an AI model to transform them into structured Markdown documents. The application is built with a modular architecture, separating concerns for storage interaction, file processing, and directory scanning.
 
 The core technologies used are:
 - **Python 3.9+**: The primary programming language.
 - **Poetry**: For dependency management and packaging.
-- **Vercel Blob Storage**: The target storage system for file scanning and writing.
+- **Cloudflare S3 / R2 via upload-blob**: The target storage system for file scanning and writing.
 - **Ollama**: To run the AI model locally for text-to-markdown transformation.
 - **asyncio**: For concurrent processing of files.
 
@@ -30,12 +30,12 @@ cp .env.example .env
 ```
 
 The required environment variables are:
-- `BLOB_API_URL`: Your Vercel Blob API URL.
-- `VERCEL_BLOB_TOKEN`: Your Vercel API token.
-- `BLOB_STORE_ID`: Your Blob Store ID.
+- `UPLOAD_BLOB_API_URL`: Your upload-blob API URL.
+- `UPLOAD_BLOB_API_TOKEN`: Your upload-blob API token.
+- `POSTGRES_URL`: Postgres connection string used when updating media records.
 - `OLLAMA_MODEL_ID`: The Ollama model to use (e.g., `llama3.2`).
 - `OLLAMA_BASE_URL`: URL of your local Ollama instance.
-- `ROOT_SCAN_FOLDER`: The root directory to scan in your blob storage.
+- `ROOT_SCAN_FOLDER`: The root directory to scan in object storage.
 
 ### 3. Running the Application
 

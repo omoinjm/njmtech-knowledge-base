@@ -27,7 +27,7 @@ async def handle_blob_routes(request, env, method, path, query):
     normalized_path = path.rstrip("/") or "/"
 
     if method == "GET" and normalized_path == "/api/v1":
-        return json_response({"message": "Welcome to the Vercel Blob API"})
+        return json_response({"message": "Welcome to the upload blob API"})
 
     if method == "GET" and normalized_path in ("/api/v1/files", "/api/v1/blob/files"):
         settings = await _require_authorized_settings(request, env)

@@ -1,11 +1,11 @@
 # NJMTech Blob Cron
 
-This application is a cron-driven Python script that scans a Vercel Blob Storage container, identifies specific text files, and uses an AI model to transform them into structured Markdown documents.
+This application is a Python batch job that scans transcript files through the `upload-blob` API, identifies specific text files, and uses an AI model to transform them into structured Markdown documents.
 
 ## Project Structure
 
 - `src/njm_blob_cron`: Main application source code.
-  - `blob_storage`: Handles interaction with Vercel Blob Storage.
+  - `blob_storage`: Handles interaction with the `upload-blob` API backed by Cloudflare S3 / R2.
   - `processing`: Contains file processing logic, including the AI-powered text-to-markdown transformation.
   - `scanner`: Implements the directory scanning and rule evaluation logic.
   - `config.py`: Manages application configuration from environment variables.
@@ -30,12 +30,12 @@ This application is a cron-driven Python script that scans a Vercel Blob Storage
     cp .env.example .env
     ```
 
-    - `BLOB_API_URL`: Your Vercel Blob API URL.
-    - `VERCEL_BLOB_TOKEN`: Your Vercel API token.
-    - `BLOB_STORE_ID`: Your Blob Store ID.
+    - `UPLOAD_BLOB_API_URL`: Your upload-blob API URL.
+    - `UPLOAD_BLOB_API_TOKEN`: Your upload-blob API token.
+    - `POSTGRES_URL`: Postgres connection string for media record updates.
     - `OLLAMA_MODEL_ID`: The Ollama model to use (e.g., `llama3.2`).
     - `OLLAMA_BASE_URL`: URL of your local Ollama instance.
-    - `ROOT_SCAN_FOLDER`: The root directory to scan in your blob storage.
+    - `ROOT_SCAN_FOLDER`: The root directory to scan in object storage.
 
 3.  **Run the application:**
 
@@ -43,12 +43,27 @@ This application is a cron-driven Python script that scans a Vercel Blob Storage
     poetry run python main.py
     ```
 
-## Cron Job
+## Cloudflare Containers deployment
 
-The `scripts/run_cron.sh` script is provided to be used with a cron scheduler. It ensures the application runs within the correct environment.
+This app is now designed to run as a **Cloudflare Container batch job** launched by a Worker, not as an in-container cron daemon.
 
-Example cron task to run every minute:
+- `worker.mjs` owns the schedule and starts the container every minute.
+- `wrangler.jsonc` declares the cron trigger, container image, and Durable Object binding.
+- `Dockerfile` now runs `python3 main.py` once and exits.
+- `POST /admin/run` triggers a manual run.
+- `GET /admin/state` returns the current container state.
 
-```cron
-* * * * * /path/to/your/project/scripts/run_cron.sh
+Manual admin routes require:
+
+- `BLOB_CRON_ADMIN_TOKEN`
+
+Example manual trigger:
+
+```bash
+curl -X POST https://<your-worker-url>/admin/run \
+  -H "Authorization: Bearer $BLOB_CRON_ADMIN_TOKEN"
 ```
+
+## Local cron / non-Cloudflare environments
+
+The `scripts/run_cron.sh` script is still available for traditional cron-based environments.

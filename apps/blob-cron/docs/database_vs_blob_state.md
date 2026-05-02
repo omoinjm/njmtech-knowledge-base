@@ -4,7 +4,7 @@ This document outlines the current logic for tracking file processing states and
 
 ## Current Architecture: File-System-as-State
 
-The application currently uses the presence or absence of files in Vercel Blob Storage to determine its processing state.
+The application currently uses the presence or absence of files in object storage to determine its processing state.
 
 ### How it works:
 1. **Scan:** The `DirectoryScanner` lists all blobs in the `ROOT_SCAN_FOLDER`.

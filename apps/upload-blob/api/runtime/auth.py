@@ -17,6 +17,6 @@ async def load_settings(env) -> Settings:
 async def authorize(request, env) -> Settings | None:
     settings = await load_settings(env)
     token = extract_bearer_token(request)
-    if token != settings.VERCEL_BLOB_API_TOKEN:
+    if token != settings.UPLOAD_BLOB_API_TOKEN:
         return None
     return settings

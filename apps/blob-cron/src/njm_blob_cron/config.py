@@ -6,9 +6,12 @@ from .secrets import load_secrets
 load_dotenv()
 load_secrets()
 
-# Vercel Blob Storage Configuration
-BLOB_API_URL = os.getenv("BLOB_API_URL")
-VERCEL_BLOB_TOKEN = os.getenv("VERCEL_BLOB_TOKEN")
+def get_upload_blob_api_url():
+    return os.getenv("UPLOAD_BLOB_API_URL")
+
+
+def get_upload_blob_api_token():
+    return os.getenv("UPLOAD_BLOB_API_TOKEN")
 
 # AI Model Configuration (Ollama)
 OLLAMA_MODEL_ID = os.getenv("OLLAMA_MODEL_ID", "llama3.2")
@@ -23,12 +26,12 @@ POSTGRES_URL = os.getenv("POSTGRES_URL")
 
 def validate_config():
     """Validates that all required environment variables are set."""
-    required_vars = [
-        "VERCEL_BLOB_TOKEN",
-        "BLOB_API_URL",
-        "POSTGRES_URL",
-    ]
-    missing_vars = [var for var in required_vars if not globals()[var]]
+    required_vars = {
+        "UPLOAD_BLOB_API_TOKEN": get_upload_blob_api_token(),
+        "UPLOAD_BLOB_API_URL": get_upload_blob_api_url(),
+        "POSTGRES_URL": os.getenv("POSTGRES_URL"),
+    }
+    missing_vars = [var for var, value in required_vars.items() if not value]
     if missing_vars:
         raise ValueError(
             f"Missing required environment variables: {', '.join(missing_vars)}"

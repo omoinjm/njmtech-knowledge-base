@@ -1,6 +1,6 @@
-# Cron-based Vercel Blob Scanner
+# Cron-based Object Storage Scanner
 
-This document describes how to design and build an application that runs a **cron job every minute**. The cron job executes a **Python program** that scans **Vercel Blob Storage** and applies conditional logic to files found under a specific directory.
+This document describes how to design and build an application that runs a **cron job every minute**. The cron job executes a **Python program** that scans object storage through the `upload-blob` API and applies conditional logic to files found under a specific directory.
 
 ---
 
@@ -10,14 +10,14 @@ The application consists of the following components:
 
 - **Scheduler (cron)** – Triggers execution every minute
 - **Python runtime** – Executes the scanning logic
-- **Vercel Blob SDK / API** – Lists directories and files
+- **Upload blob API / Cloudflare S3 backend** – Lists directories and files
 - **Business logic** – Determines which directories qualify for further processing
 
 At a high level, the cron job:
 
 1. Runs every minute
 2. Executes a Python script
-3. Scans Vercel Blob starting from a root folder: `njmtech-blob-api`
+3. Scans object storage starting from a root folder: `njmtech-blob-api`
 4. Identifies subdirectories containing `.txt` files
 5. Applies rules to determine whether to process or skip each directory
 
@@ -45,7 +45,7 @@ The cron job can be hosted in one of the following environments:
 > The environment must have access to:
 >
 > - Python 3.9+
-> - Network access to Vercel Blob
+> - Network access to the upload-blob API and its storage backend
 > - Required environment variables
 
 ---
@@ -58,7 +58,7 @@ The Python application is responsible for all scanning and decision-making logic
 
 The script must:
 
-- Connect to Vercel Blob storage
+- Connect to object storage through the upload-blob API
 - Start scanning from the folder:
 
 ```text
@@ -182,4 +182,4 @@ Potential future improvements:
 
 ## 10. Summary
 
-This application provides a deterministic, cron-driven mechanism for scanning Vercel Blob storage and conditionally processing directories based on file composition. The architecture is intentionally modular so that additional processing logic can be added without modifying the scheduling or scanning foundation.
+This application provides a deterministic, cron-driven mechanism for scanning object storage and conditionally processing directories based on file composition. The architecture is intentionally modular so that additional processing logic can be added without modifying the scheduling or scanning foundation.

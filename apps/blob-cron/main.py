@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from njm_blob_cron.config import validate_config
-from njm_blob_cron.blob_storage.vercel_blob import VercelBlobStorage
+from njm_blob_cron.blob_storage.vercel_blob import BlobAPIStorage
 from njm_blob_cron.processing.markdown_transformer import MarkdownTransformer
 from njm_blob_cron.scanner.directory_scanner import DirectoryScanner
 from njm_blob_cron.database import db_pool
@@ -24,7 +24,7 @@ async def main():
         logging.info("Configuration validated successfully.")
 
         # 2. Instantiate components (Dependency Injection)
-        blob_storage = VercelBlobStorage()
+        blob_storage = BlobAPIStorage()
         markdown_processor = MarkdownTransformer(blob_storage=blob_storage)
         scanner = DirectoryScanner(
             blob_storage=blob_storage,

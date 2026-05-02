@@ -7,7 +7,7 @@ import logging
 # Add src to PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from njm_blob_cron.blob_storage.vercel_blob import VercelBlobStorage
+from njm_blob_cron.blob_storage.vercel_blob import BlobAPIStorage
 from njm_blob_cron.database import db_pool
 from njm_blob_cron.config import ROOT_SCAN_FOLDER, validate_config
 
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 async def sync_existing_notes():
     """
-    One-time script to sync existing .md files from Vercel Blob storage to the media_items table.
+    One-time script to sync existing .md files from object storage to the media_items table.
     """
     logging.info("Starting sync of existing notes...")
 
@@ -25,7 +25,7 @@ async def sync_existing_notes():
         validate_config()
         
         # 2. Initialize components
-        blob_storage = VercelBlobStorage()
+        blob_storage = BlobAPIStorage()
         await db_pool.connect()
 
         # 3. List all directories/blobs

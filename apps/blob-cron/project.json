@@ -19,6 +19,20 @@
         "cwd": "apps/blob-cron",
         "envFile": "environments/blob-cron.env"
       }
+    },
+    "worker-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm run dev",
+        "cwd": "apps/blob-cron"
+      }
+    },
+    "worker-deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm run deploy",
+        "cwd": "apps/blob-cron"
+      }
     }
   }
 }

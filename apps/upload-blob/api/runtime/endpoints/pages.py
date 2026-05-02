@@ -89,7 +89,7 @@ async def upload(file: UploadFile = File(...)):
 WORKER_OPENAPI = {
     "openapi": "3.0.3",
     "info": {
-        "title": "NJMTECH Vercel Blob API (Worker)",
+        "title": "NJMTECH Upload Blob API (Worker)",
         "version": "1.0.0",
         "description": "Cloudflare Worker runtime routes.",
     },
@@ -109,7 +109,7 @@ WORKER_OPENAPI = {
                 "properties": {
                     "message": {
                         "type": "string",
-                        "example": "Welcome to the Vercel Blob API",
+                        "example": "Welcome to the upload blob API",
                     }
                 },
                 "required": ["message"],
@@ -150,7 +150,7 @@ WORKER_OPENAPI = {
                 "properties": {
                     "url": {
                         "type": "string",
-                        "example": "https://example.public.blob.vercel-storage.com/file.txt",
+                        "example": "https://pub-1234567890abcdef.r2.dev/file.txt",
                     },
                     "pathname": {
                         "type": "string",

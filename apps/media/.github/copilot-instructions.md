@@ -27,10 +27,10 @@
 - The main submission flow spans client and server:
   1. `AddUrlBar` collects a URL and `MediaDashboard` calls `addMediaItem()`.
   2. `addMediaItem()` resolves metadata with `fetchVideoMeta()` in `src/lib/metadata.ts`.
-  3. It checks Vercel Blob for transcript and notes files with `checkBlobFiles()` in `src/lib/blob-utils.ts`.
+  3. It checks object storage for transcript and notes files with `checkBlobFiles()` in `src/lib/blob-utils.ts`.
   4. It persists the record in Neon with `dbUpsertMediaItem()` in `src/lib/db.ts`.
   5. If a transcript exists, it kicks off background categorization with `categorizeTranscript()` in `src/lib/categorize.ts` and then writes category/tags back with `dbUpdateCategory()`.
-- Public mode reuses the same metadata/blob/categorization helpers through `preparePublicMediaItem()` and `categorizeTranscriptAction()`, persists the resulting `MediaItem` objects in encrypted browser storage via `src/lib/public-media-storage.ts`, and stores Blob/API credentials in encrypted browser storage via `src/lib/guest-config.ts`.
+- Public mode reuses the same metadata/blob/categorization helpers through `preparePublicMediaItem()` and `categorizeTranscriptAction()`, persists the resulting `MediaItem` objects in encrypted browser storage via `src/lib/public-media-storage.ts`, and stores storage/API credentials in encrypted browser storage via `src/lib/guest-config.ts`.
 - Rendering is split between server-fetched initial state and client-side updates. The page fetches the first item list on the server, then `MediaDashboard` owns local item state, tab derivation, error state, and the polling loop for background categorization results.
 - The client is intentionally optimistic only for manual categorization. Automatic categorization after add is async, so `MediaDashboard` polls `getMediaItemById()` every 4 seconds for up to 15 attempts until `category` is populated.
 - `MediaCard` is where platform-specific playback behavior lives. YouTube, TikTok, and Vimeo use inline embeds; other platforms fall back to opening the original URL in a new tab. Platform badge labels/icons come from `src/components/PlatformIcon.tsx`.

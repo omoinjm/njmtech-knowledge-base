@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "apps/upload-blob/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
       - ".github/workflows/upload-blob-cloudflare.yml"
   workflow_dispatch:
 
@@ -12,32 +15,46 @@ concurrency:
   group: deploy-upload-blob-prod
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/upload-blob
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: pnpm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Install dependencies
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install upload-blob dependencies
+        working-directory: apps/upload-blob
         run: |
-          npm ci
           uv sync
 
       - name: Deploy Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          uv run pywrangler deploy
+        working-directory: apps/upload-blob
+        run: pnpm run deploy

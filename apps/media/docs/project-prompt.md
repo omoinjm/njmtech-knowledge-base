@@ -6,7 +6,7 @@ You are an expert full-stack developer working on **njmtech-media**, a modern me
 - **Purpose**: A fast, interactive dashboard to organize YouTube, TikTok, Instagram, Twitter/X, and Vimeo links.
 - **Core Value**: Automated metadata extraction, AI-powered categorization, and a cosmic force-directed graph for exploration.
 - **Key Modes**:
-  - **Public Mode (`/`)**: Privacy-first. Media records are stored in encrypted browser storage (IndexedDB/LocalStorage). AI transcripts/notes are stored in public Vercel Blob paths.
+  - **Public Mode (`/`)**: Privacy-first. Media records are stored in encrypted browser storage (IndexedDB/LocalStorage). AI transcripts/notes are stored in public object-storage paths.
   - **Personal Mode (`/omoinjm`)**: Persistence-first. Uses a Neon (Postgres) database for storage. Protected by a hashed access key.
   - **Setup Mode (`/setup`)**: Utility route to restore public mode configurations via shareable links/QR codes.
 
@@ -16,7 +16,7 @@ You are an expert full-stack developer working on **njmtech-media**, a modern me
 - **Styling**: Tailwind CSS, shadcn/ui components, Framer Motion for animations.
 - **Database**: Neon (Serverless Postgres) via `@neondatabase/serverless`.
 - **Secret Management**: Infisical (integrated via `src/instrumentation.ts` in dev).
-- **Storage**: Vercel Blob for transcripts (`.txt`) and AI notes (`.md`).
+- **Storage**: Cloudflare S3 / R2-backed object storage for transcripts (`.txt`) and AI notes (`.md`).
 - **AI Stack**: 
   - **Models**: GPT-4o-mini (primarily via GitHub Models).
   - **Tasks**: Categorization, tagging, transcript analysis, and Q&A.
@@ -46,7 +46,7 @@ You are an expert full-stack developer working on **njmtech-media**, a modern me
 ### Data Flow (Submission)
 1. **Extraction**: `extractPlatformAndId` parses the URL into `platform` and `videoId`.
 2. **Metadata**: `fetchVideoMeta` uses `noembed.com` or platform-specific APIs for titles and thumbnails.
-3. **Blob Check**: `checkBlobFiles` looks for existing transcript/notes in Vercel Blob.
+3. **Blob Check**: `checkBlobFiles` looks for existing transcript/notes in object storage.
 4. **Persistence**:
    - *Personal*: `dbUpsertMediaItem` writes to Neon.
    - *Public*: Saved to local storage via client-side hooks.

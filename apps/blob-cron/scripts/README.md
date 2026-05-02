@@ -1,6 +1,6 @@
 # NJMTech Blob Cron - Utility Scripts
 
-This directory contains the essential scripts for running and maintaining the Vercel Blob cron job.
+This directory contains the essential scripts for running and maintaining the object-storage cron job.
 
 ## Scripts Overview
 
@@ -8,7 +8,7 @@ This directory contains the essential scripts for running and maintaining the Ve
 *   **`run_cron.sh`**: The main entry point for the cron job. It uses `flock` to prevent overlapping runs and executes `main.py`.
 
 ### Maintenance Tools
-*   **`final_cleanup_v2.py`**: The definitive cleanup tool. It queries the custom NJMTech API to find existing markdown result URLs and deletes them using the official Vercel API. Use this to reset the state for all transcripts if needed.
+*   **`final_cleanup_v2.py`**: The definitive cleanup tool. It queries the custom NJMTech API to find existing markdown result URLs and deletes them through the configured storage backend. Use this to reset the state for all transcripts if needed.
 
 ## Usage
 
