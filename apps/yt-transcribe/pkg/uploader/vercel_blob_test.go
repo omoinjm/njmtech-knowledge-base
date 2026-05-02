@@ -22,14 +22,14 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("DoFunc not set")
 }
 
-// TestNewVercelBlobUploader ensures the constructor works correctly.
-func TestNewVercelBlobUploader(t *testing.T) {
+// TestNewBlobAPIUploader ensures the constructor works correctly.
+func TestNewBlobAPIUploader(t *testing.T) {
 	apiURL := "https://example.com/api"
 	apiToken := "test-token"
-	uploader := NewVercelBlobUploader(apiURL, apiToken, nil)
+	uploader := NewBlobAPIUploader(apiURL, apiToken, nil)
 
 	if uploader == nil {
-		t.Errorf("NewVercelBlobUploader returned nil, expected an instance")
+		t.Errorf("NewBlobAPIUploader returned nil, expected an instance")
 	}
 	if uploader.apiURL != apiURL {
 		t.Errorf("Expected apiURL to be %s, got %s", apiURL, uploader.apiURL)
@@ -70,7 +70,7 @@ func TestUpload_Success(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	uploader := NewVercelBlobUploader(testServer.URL, "test-token", nil)
+	uploader := NewBlobAPIUploader(testServer.URL, "test-token", nil)
 	content := "test content"
 
 	response, err := uploader.Upload(context.Background(), content, filename)
@@ -93,7 +93,7 @@ func TestUpload_APIError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	uploader := NewVercelBlobUploader(testServer.URL, "test-token", nil)
+	uploader := NewBlobAPIUploader(testServer.URL, "test-token", nil)
 	content := "test content"
 	filename := "test.txt"
 
@@ -112,7 +112,7 @@ func TestUpload_APIError(t *testing.T) {
 func TestUpload_NetworkError(t *testing.T) {
 	// Create a client that will intentionally cause a network error (e.g., trying to connect to a closed server)
 	// We pass nil for the httpClient, so it defaults to &http.Client{} which will try to connect.
-	uploader := NewVercelBlobUploader("http://localhost:12345", "test-token", nil)
+	uploader := NewBlobAPIUploader("http://localhost:12345", "test-token", nil)
 	content := "test content"
 	filename := "test.txt"
 
@@ -131,7 +131,7 @@ func TestUpload_NetworkError(t *testing.T) {
 // TestUpload_InvalidURL tests error during request creation or sending with an invalid URL
 func TestUpload_InvalidURL(t *testing.T) {
 	// Simulate an empty apiURL to trigger an error related to http.NewRequest or client.Do
-	uploader := NewVercelBlobUploader("", "test-token", nil)
+	uploader := NewBlobAPIUploader("", "test-token", nil)
 	content := "test content"
 	filename := "test.txt"
 
@@ -163,7 +163,7 @@ func TestUpload_ReadResponseBodyError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	uploader := NewVercelBlobUploader(testServer.URL, "test-token", nil)
+	uploader := NewBlobAPIUploader(testServer.URL, "test-token", nil)
 	content := "test content"
 	filename := "test.txt"
 
@@ -200,7 +200,7 @@ func TestUpload_CustomHTTPClient(t *testing.T) {
 		},
 	}
 
-	uploader := NewVercelBlobUploader("https://example.com/api", "test-token", mockClient)
+	uploader := NewBlobAPIUploader("https://example.com/api", "test-token", mockClient)
 	content := "test content"
 
 	response, err := uploader.Upload(context.Background(), content, filename)

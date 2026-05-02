@@ -21,8 +21,8 @@ var loadDotEnvOnce sync.Once
 // Config holds application configuration loaded from environment or Infisical.
 type Config struct {
 	WhisperModelPath        string
-	VercelBlobAPIURL        string
-	VercelBlobAPIToken      string
+	UploadBlobAPIURL        string
+	UploadBlobAPIToken      string
 	PostgresURL             string
 	YTDLPCookiesFile        string
 	YTDLPCookiesFromBrowser string
@@ -61,23 +61,35 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 	}
 	logSecretLoaded("WHISPER_MODEL_PATH")
 
-	vercelBlobAPIURL, err := secrets.GetSecret(ctx, "VERCEL_BLOB_API_URL", "VERCEL_BLOB_API_URL", infisicalProjectID, infisicalEnvironment)
+	uploadBlobAPIURL, err := secrets.GetSecret(
+		ctx,
+		"UPLOAD_BLOB_API_URL",
+		"UPLOAD_BLOB_API_URL",
+		infisicalProjectID,
+		infisicalEnvironment,
+	)
 	if err != nil {
 		return nil, err
 	}
-	if vercelBlobAPIURL == "" {
-		return nil, fmt.Errorf("VERCEL_BLOB_API_URL not set")
+	if uploadBlobAPIURL == "" {
+		return nil, fmt.Errorf("UPLOAD_BLOB_API_URL not set")
 	}
-	logSecretLoaded("VERCEL_BLOB_API_URL")
+	logSecretLoaded("UPLOAD_BLOB_API_URL")
 
-	vercelBlobAPIToken, err := secrets.GetSecret(ctx, "VERCEL_BLOB_API_TOKEN", "VERCEL_BLOB_API_TOKEN", infisicalProjectID, infisicalEnvironment)
+	uploadBlobAPIToken, err := secrets.GetSecret(
+		ctx,
+		"UPLOAD_BLOB_API_TOKEN",
+		"UPLOAD_BLOB_API_TOKEN",
+		infisicalProjectID,
+		infisicalEnvironment,
+	)
 	if err != nil {
 		return nil, err
 	}
-	if vercelBlobAPIToken == "" {
-		return nil, fmt.Errorf("VERCEL_BLOB_API_TOKEN not set")
+	if uploadBlobAPIToken == "" {
+		return nil, fmt.Errorf("UPLOAD_BLOB_API_TOKEN not set")
 	}
-	logSecretLoaded("VERCEL_BLOB_API_TOKEN")
+	logSecretLoaded("UPLOAD_BLOB_API_TOKEN")
 
 	// POSTGRES_URL is optional (only needed for -db mode)
 	postgresURL, err := secrets.GetSecret(ctx, "POSTGRES_URL", "POSTGRES_URL", infisicalProjectID, infisicalEnvironment)
@@ -106,8 +118,8 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 
 	return &Config{
 		WhisperModelPath:        whisperModelPath,
-		VercelBlobAPIURL:        vercelBlobAPIURL,
-		VercelBlobAPIToken:      vercelBlobAPIToken,
+		UploadBlobAPIURL:        uploadBlobAPIURL,
+		UploadBlobAPIToken:      uploadBlobAPIToken,
 		PostgresURL:             postgresURL,
 		YTDLPCookiesFile:        ytdlpCookiesFile,
 		YTDLPCookiesFromBrowser: ytdlpCookiesFromBrowser,
@@ -128,7 +140,11 @@ func NewTranscriptionServiceFromEnv() (src.TranscriptionService, error) {
 
 	videoDownloader := downloader.NewYTDLPAudioDownloader(cfg.YTDLPCookiesFile, cfg.YTDLPCookiesFromBrowser)
 	audioTranscriber := transcriber.NewWhisperCPPTranscriber(cfg.WhisperModelPath)
-	blobUploader := uploader.NewVercelBlobUploader(cfg.VercelBlobAPIURL, cfg.VercelBlobAPIToken, &http.Client{})
+	blobUploader := uploader.NewBlobAPIUploader(
+		cfg.UploadBlobAPIURL,
+		cfg.UploadBlobAPIToken,
+		&http.Client{},
+	)
 
 	return src.NewTranscriptionService(videoDownloader, audioTranscriber, blobUploader), nil
 }

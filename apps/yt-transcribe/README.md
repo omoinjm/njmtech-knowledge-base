@@ -1,14 +1,14 @@
 # yt-transcribe
 
-A Go transcription worker and HTTP API that downloads audio from YouTube, Instagram, and other platforms supported by `yt-dlp`, transcribes it using `whisper.cpp`, and uploads the transcript (SRT format with timestamps) to Vercel Blob storage. It can run as a CLI worker, pull the next job from Postgres, reprocess existing records, or expose a Vercel-compatible API.
+A Go transcription worker and HTTP API that downloads audio from YouTube, Instagram, and other platforms supported by `yt-dlp`, transcribes it using `whisper.cpp`, and uploads the transcript (SRT format with timestamps) through the `upload-blob` API backed by Cloudflare's S3-compatible storage. It can run as a CLI worker, pull the next job from Postgres, reprocess existing records, or expose an HTTP API.
 
 ## Features
 
 - Downloads audio via `yt-dlp` and converts to WAV with `ffmpeg`
 - Transcribes using `whisper.cpp` — outputs SRT files with timestamps
-- Uploads transcripts to Vercel Blob storage
+- Uploads transcripts through the upload-blob API to Cloudflare S3 / R2
 - Three run modes: single URL, DB-driven, and reprocess-all
-- HTTP API mode for Vercel and local server use
+- HTTP API mode for Cloudflare Containers and local server use
 - Idle-safe DB connection (uses `pgxpool` — survives Neon's connection timeouts during long jobs)
 
 ---
@@ -24,9 +24,9 @@ cp .env.example .env
 | Variable | Required | Description |
 |---|---|---|
 | `WHISPER_MODEL_PATH` | ✅ | Path to the `ggml-*.bin` model file |
-| `VERCEL_BLOB_API_URL` | ✅ | Upload endpoint for your Blob API |
-| `VERCEL_BLOB_API_TOKEN` | ✅ | Auth token for the Blob API |
-| `PORT` | Vercel / local API only | Port for HTTP server mode; Vercel sets this automatically |
+| `UPLOAD_BLOB_API_URL` | ✅ | Upload endpoint for the upload-blob API |
+| `UPLOAD_BLOB_API_TOKEN` | ✅ | Auth token for the upload-blob API |
+| `PORT` | Cloudflare container / local API only | Port for HTTP server mode |
 | `POSTGRES_URL` | `-db` / `-reprocess-all` only | Neon / Postgres connection string |
 | `DOCKERHUB_USERNAME` | Docker Compose only | Your Docker Hub username (resolves the image name) |
 
@@ -119,9 +119,26 @@ curl -X POST http://localhost:3000/api/transcribe \
 {"blobUrl":"https://..."}
 ```
 
-### Vercel deployment
+### Cloudflare Containers deployment
 
-This repo now includes `vercel.json` with the Go framework preset so Vercel can run the root `main.go` server. Set the same environment variables you use locally (`WHISPER_MODEL_PATH`, `VERCEL_BLOB_API_URL`, `VERCEL_BLOB_API_TOKEN`, and `POSTGRES_URL` if needed) in your Vercel project settings.
+This app is now wired for **Cloudflare Workers + Containers**:
+
+- `worker.mjs` proxies normal HTTP traffic to an API container instance.
+- The Worker cron trigger starts a separate batch-job container every 15 minutes with `-db`.
+- `POST /admin/jobs/db` starts a manual `-db` batch run.
+- `POST /admin/jobs/reprocess-all` starts a manual `-reprocess-all` batch run.
+- `GET /admin/state` returns the current state of the API and batch container instances.
+
+Admin routes require:
+
+- `YT_TRANSCRIBE_ADMIN_TOKEN`
+
+Example manual reprocess:
+
+```bash
+curl -X POST https://<your-worker-url>/admin/jobs/reprocess-all \
+  -H "Authorization: Bearer $YT_TRANSCRIBE_ADMIN_TOKEN"
+```
 
 ---
 

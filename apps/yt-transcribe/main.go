@@ -157,7 +157,7 @@ func runFromCLI(ctx context.Context, svc src.TranscriptionService, videoURL, out
 }
 
 // runFromDB fetches the next unprocessed media_items row, transcribes it,
-// and writes the resulting Vercel Blob URL back to transcript_url.
+// and writes the resulting transcript URL back to transcript_url.
 func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir string) {
 	cfg, err := bootstrap.LoadConfigFromEnv(ctx)
 	if err != nil {

@@ -15,27 +15,27 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// VercelBlobUploader implements the Uploader interface for Vercel Blob storage.
-type VercelBlobUploader struct {
+// BlobAPIUploader implements the Uploader interface for the upload-blob API.
+type BlobAPIUploader struct {
 	apiURL     string
 	apiToken   string
 	httpClient HTTPClient
 }
 
-// NewVercelBlobUploader creates a new VercelBlobUploader.
-func NewVercelBlobUploader(apiURL, apiToken string, client HTTPClient) *VercelBlobUploader {
+// NewBlobAPIUploader creates a new BlobAPIUploader.
+func NewBlobAPIUploader(apiURL, apiToken string, client HTTPClient) *BlobAPIUploader {
 	if client == nil {
 		client = &http.Client{}
 	}
-	return &VercelBlobUploader{
+	return &BlobAPIUploader{
 		apiURL:     apiURL,
 		apiToken:   apiToken,
 		httpClient: client,
 	}
 }
 
-// Upload uploads the given content to Vercel Blob storage.
-func (v *VercelBlobUploader) Upload(ctx context.Context, content string, filename string) (string, error) {
+// Upload uploads the given content to the upload-blob API.
+func (v *BlobAPIUploader) Upload(ctx context.Context, content string, filename string) (string, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 

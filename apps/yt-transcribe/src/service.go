@@ -16,12 +16,12 @@ const (
 	PLATFORM_INSTAGRAM = "instagram"
 )
 
-// vercelBlobResponse represents the JSON response from the Vercel Blob API.
-type vercelBlobResponse struct {
-	URL                string `json:"url"`
-	Pathname           string `json:"pathname"`
-	ContentType        string `json:"contentType"`
-	ContentDisposition string `json:"contentDisposition"`
+// uploadBlobResponse represents the JSON response from the upload-blob API.
+type uploadBlobResponse struct {
+	URL         string `json:"url"`
+	Pathname    string `json:"pathname"`
+	ContentType string `json:"content_type"`
+	Size        int    `json:"size"`
 }
 
 // TranscriptionServiceImpl is the implementation of the TranscriptionService interface.
@@ -41,7 +41,7 @@ func NewTranscriptionService(downloader VideoDownloader, transcriber Transcriber
 }
 
 // Execute orchestrates the download, transcription, and upload processes.
-// It returns the Vercel Blob URL of the uploaded transcript.
+// It returns the uploaded transcript URL.
 func (s *TranscriptionServiceImpl) Execute(ctx context.Context, videoURL, outputDir string) (string, error) {
 	// 1. Download the audio
 	fmt.Println("Downloading audio...")
@@ -82,7 +82,7 @@ func (s *TranscriptionServiceImpl) Execute(ctx context.Context, videoURL, output
 	}
 
 	fmt.Println("\n--- Transcription Upload Complete ---")
-	var blobResp vercelBlobResponse
+	var blobResp uploadBlobResponse
 	if jsonErr := json.Unmarshal([]byte(rawResponse), &blobResp); jsonErr == nil {
 		fmt.Printf("Blob URL:  %s\n", blobResp.URL)
 		fmt.Printf("Pathname:  %s\n", blobResp.Pathname)

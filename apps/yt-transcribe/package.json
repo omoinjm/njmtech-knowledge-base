@@ -6,6 +6,14 @@
     "build": "nx build yt-transcribe",
     "test": "nx test yt-transcribe",
     "serve": "nx serve yt-transcribe",
-    "lint": "nx lint yt-transcribe"
+    "lint": "nx lint yt-transcribe",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.3.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.87.0"
   }
 }

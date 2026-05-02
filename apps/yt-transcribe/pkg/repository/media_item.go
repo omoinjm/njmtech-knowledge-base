@@ -22,6 +22,6 @@ type MediaItemRepository interface {
 	// Used by the reprocess-all mode to regenerate transcripts for existing records.
 	FetchAll(ctx context.Context) ([]MediaItem, error)
 
-	// UpdateTranscriptURL writes the Vercel Blob URL back to transcript_url for the given row id.
+	// UpdateTranscriptURL writes the transcript URL back to transcript_url for the given row id.
 	UpdateTranscriptURL(ctx context.Context, id, transcriptURL string) error
 }

@@ -31,6 +31,20 @@
         "command": "go vet ./...",
         "cwd": "apps/yt-transcribe"
       }
+    },
+    "worker-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm worker:dev",
+        "cwd": "apps/yt-transcribe"
+      }
+    },
+    "worker-deploy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm worker:deploy",
+        "cwd": "apps/yt-transcribe"
+      }
     }
   }
 }

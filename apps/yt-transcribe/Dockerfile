@@ -34,11 +34,10 @@ RUN CGO_ENABLED=0 go build -tags=infisical -ldflags="-w -s" -o /yt-transcribe .
 # Stage 2: Create the final, minimal image
 FROM alpine:3.21
 
-# Install runtime dependencies: ffmpeg, curl, cmake, build-base, python3, nodejs, busybox-extras.
+# Install runtime dependencies: ffmpeg, curl, cmake, build-base, python3, nodejs.
 # cmake and build-base are needed for building whisper.cpp.
 # python3 is required by yt-dlp.
-# busybox-extras provides crond for scheduling cron jobs.
-RUN apk add --no-cache ffmpeg curl cmake build-base git python3 nodejs busybox-extras
+RUN apk add --no-cache ffmpeg curl cmake build-base git python3 nodejs
 
 # Install yt-dlp from the latest release.
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
@@ -57,8 +56,8 @@ COPY --from=builder /yt-transcribe /usr/local/bin/
 
 # Copy the entrypoint script and make it executable.
 COPY entrypoint.sh /usr/local/bin/
-COPY run-db-job.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/run-db-job.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set the entrypoint to manage cron scheduling.
+# Set the entrypoint so Cloudflare Containers can run either the HTTP server
+# or a one-off batch job by passing CLI flags through the same image.
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,40 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "yt-transcribe-worker",
+  "main": "./worker.mjs",
+  "compatibility_date": "2026-05-02",
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "containers": [
+    {
+      "class_name": "YTTranscribeAPIContainer",
+      "image": "./Dockerfile"
+    },
+    {
+      "class_name": "YTTranscribeJobContainer",
+      "image": "./Dockerfile"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "YT_TRANSCRIBE_API_CONTAINER",
+        "class_name": "YTTranscribeAPIContainer"
+      },
+      {
+        "name": "YT_TRANSCRIBE_JOB_CONTAINER",
+        "class_name": "YTTranscribeJobContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "YTTranscribeAPIContainer",
+        "YTTranscribeJobContainer"
+      ]
+    }
+  ]
+}
