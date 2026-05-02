@@ -1,5 +1,5 @@
 import os
-from infisical_sdk import InfisicalSDK
+from infisical_sdk import InfisicalSDKClient
 
 _initialized = False
 
@@ -33,12 +33,13 @@ def load_secrets():
     site_url = os.getenv("INFISICAL_SITE_URL", "https://app.infisical.com")
 
     try:
-        client = InfisicalSDK(host=site_url)
+        client = InfisicalSDKClient(host=site_url)
         client.auth.universal_auth.login(client_id=client_id, client_secret=client_secret)
 
         secrets = client.secrets.list_secrets(
             project_id=project_id,
-            environment=environment,
+            environment_slug=environment,
+            secret_path="/",
             expand_secret_references=True
         )
 
