@@ -168,6 +168,15 @@ export default {
       );
     }
 
+    if (url.pathname === "/admin/test-env" && request.method === "GET") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      const container = await startAPIContainer(env);
+      return container.fetch(new Request("http://container/debug/env", { method: "GET" }));
+    }
+
     if (url.pathname === "/admin/test-db" && request.method === "GET") {
       const unauthorized = await requireAdmin(request, env);
       if (unauthorized) {

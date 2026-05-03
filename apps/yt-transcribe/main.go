@@ -137,6 +137,19 @@ func runServer(port string) {
 		api.NewTranscribeHandler(svc).ServeHTTP(w, r)
 	}))
 
+	mux.HandleFunc("/debug/env", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		keys := []string{
+			"WHISPER_MODEL_PATH", "UPLOAD_BLOB_API_URL", "UPLOAD_BLOB_API_TOKEN",
+			"POSTGRES_URL", "INFISICAL_ENABLED", "PORT",
+		}
+		result := map[string]interface{}{}
+		for _, k := range keys {
+			result[k] = os.Getenv(k) != ""
+		}
+		_ = json.NewEncoder(w).Encode(result)
+	})
+
 	mux.HandleFunc("/debug/db", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		postgresURL := os.Getenv("POSTGRES_URL")
