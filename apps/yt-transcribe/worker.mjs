@@ -37,6 +37,8 @@ function buildYTTranscribeEnv(env, extra = {}) {
     INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: env.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET,
     INFISICAL_CLIENT_ID: env.INFISICAL_CLIENT_ID,
     INFISICAL_CLIENT_SECRET: env.INFISICAL_CLIENT_SECRET,
+    JOB_CALLBACK_URL: "https://yt-transcribe-worker.njmalaza.workers.dev/admin/job-result",
+    JOB_CALLBACK_TOKEN: env.YT_TRANSCRIBE_ADMIN_TOKEN,
     ...extra,
   });
 }
@@ -117,9 +119,30 @@ export class YTTranscribeJobContainer extends Container {
   }
 }
 
+// In-memory store for last job result (survives within a Worker instance lifetime).
+let lastJobResult = null;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Receives status callbacks from the job container binary.
+    if (url.pathname === "/admin/job-result" && request.method === "POST") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      lastJobResult = { ...(await request.json()), timestamp: new Date().toISOString() };
+      return new Response("ok", { status: 200 });
+    }
+
+    if (url.pathname === "/admin/job-result" && request.method === "GET") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      return Response.json(lastJobResult ?? { status: "no result yet" });
+    }
 
     if (url.pathname === "/admin/state" && request.method === "GET") {
       const unauthorized = await requireAdmin(request, env);
