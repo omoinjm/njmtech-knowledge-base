@@ -30,7 +30,7 @@ COPY . .
 # Build the Go application with the 'infisical' build tag (Infisical provider compiled in).
 # -ldflags="-w -s" strips debug information, reducing the binary size.
 # CGO_ENABLED=0 disables cgo, creating a static binary.
-RUN CGO_ENABLED=0 go build -tags=infisical -ldflags="-w -s" -o /yt-transcribe .
+RUN CGO_ENABLED=0 go build -mod=mod -tags=infisical -ldflags="-w -s" -o /yt-transcribe .
 
 # Stage 2: Create the final, minimal image
 FROM alpine:3.21
