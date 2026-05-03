@@ -117,23 +117,37 @@ export class YTTranscribeJobContainer extends Container {
   onStop({ exitCode, reason }) {
     console.log("yt-transcribe job container stopped", { exitCode, reason });
   }
-}
 
-// In-memory store for last job result (survives within a Worker instance lifetime).
-let lastJobResult = null;
+  // Store/retrieve the last job result in Durable Object persistent storage.
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/result" && request.method === "POST") {
+      const body = await request.json();
+      await this.ctx.storage.put("lastJobResult", { ...body, timestamp: new Date().toISOString() });
+      return new Response("ok", { status: 200 });
+    }
+    if (url.pathname === "/result" && request.method === "GET") {
+      const result = await this.ctx.storage.get("lastJobResult");
+      return Response.json(result ?? { status: "no result yet" });
+    }
+    return super.fetch(request);
+  }
+}
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Receives status callbacks from the job container binary.
+    // Receives status callbacks from the job container binary — stored in DO storage.
     if (url.pathname === "/admin/job-result" && request.method === "POST") {
       const unauthorized = await requireAdmin(request, env);
       if (unauthorized) {
         return unauthorized;
       }
-      lastJobResult = { ...(await request.json()), timestamp: new Date().toISOString() };
-      return new Response("ok", { status: 200 });
+      const body = await request.text();
+      return getJobContainer(env, DB_JOB_INSTANCE_NAME).fetch(
+        new Request("http://do/result", { method: "POST", body, headers: { "content-type": "application/json" } }),
+      );
     }
 
     if (url.pathname === "/admin/job-result" && request.method === "GET") {
@@ -141,7 +155,9 @@ export default {
       if (unauthorized) {
         return unauthorized;
       }
-      return Response.json(lastJobResult ?? { status: "no result yet" });
+      return getJobContainer(env, DB_JOB_INSTANCE_NAME).fetch(
+        new Request("http://do/result", { method: "GET" }),
+      );
     }
 
     if (url.pathname === "/admin/state" && request.method === "GET") {
