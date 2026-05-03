@@ -137,6 +137,37 @@ func runServer(port string) {
 		api.NewTranscribeHandler(svc).ServeHTTP(w, r)
 	}))
 
+	mux.HandleFunc("/debug/db", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		postgresURL := os.Getenv("POSTGRES_URL")
+		result := map[string]interface{}{"postgres_url_set": postgresURL != ""}
+		if postgresURL == "" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			result["error"] = "POSTGRES_URL not set"
+			_ = json.NewEncoder(w).Encode(result)
+			return
+		}
+		ctx := r.Context()
+		repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			result["error"] = fmt.Sprintf("connect failed: %v", err)
+			_ = json.NewEncoder(w).Encode(result)
+			return
+		}
+		defer repo.Close(ctx)
+		items, err := repo.FetchAll(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			result["error"] = fmt.Sprintf("query failed: %v", err)
+			_ = json.NewEncoder(w).Encode(result)
+			return
+		}
+		result["ok"] = true
+		result["media_items_count"] = len(items)
+		_ = json.NewEncoder(w).Encode(result)
+	})
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
