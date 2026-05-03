@@ -25,6 +25,11 @@ func NewPostgresMediaItemRepository(ctx context.Context, connString string) (*Po
 		return nil, fmt.Errorf("failed to parse connection string: %w", err)
 	}
 
+	// Use simple query protocol so this pool works with both Neon's PgBouncer
+	// pooler endpoint and a direct connection. PgBouncer in transaction mode
+	// does not support extended query protocol (prepared statements).
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
 	// Ping every connection before handing it out so connections dropped by
 	// Neon's idle-connection timeout are never returned to callers.
 	config.BeforeAcquire = func(ctx context.Context, conn *pgx.Conn) bool {
