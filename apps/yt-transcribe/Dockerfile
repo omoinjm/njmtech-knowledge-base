@@ -19,12 +19,13 @@ ENV GOSUMDB=off
 # rest of the source is added.
 COPY go.mod go.sum ./
 
+# Download only the build-time dependency graph (does not fetch test-only deps
+# of transitive packages, unlike `go mod tidy`). This also improves caching:
+# the layer is invalidated only when go.mod or go.sum changes.
+RUN go mod download
+
 # Copy the rest of the application's source code.
 COPY . .
-
-# Resolve and normalize the module graph for the infisical build tag before
-# compiling. This avoids "updates to go.mod needed" failures during the build.
-RUN go mod tidy
 
 # Build the Go application with the 'infisical' build tag (Infisical provider compiled in).
 # -ldflags="-w -s" strips debug information, reducing the binary size.
