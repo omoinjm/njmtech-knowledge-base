@@ -334,6 +334,7 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 	msg := fmt.Sprintf("transcript_url updated in database for id %s → %s", item.ID, blobURL)
 	fmt.Println(msg)
 	reportJobStatus("success", msg)
+}
 
 // runReprocessAll fetches every record in media_items and re-transcribes each one,
 // overwriting the existing transcript_url. Failures on individual items are logged
