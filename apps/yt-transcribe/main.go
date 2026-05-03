@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	api "yt-transcribe/pkg/api"
@@ -102,13 +103,40 @@ func runCLI() {
 }
 
 func runServer(port string) {
-	transcriptionService, err := bootstrap.NewTranscriptionServiceFromEnv()
-	if err != nil {
-		handleFatalError("Failed to initialize transcription service", err)
+	var (
+		svc     src.TranscriptionService
+		svcErr  error
+		svcOnce sync.Once
+	)
+
+	// Kick off service initialisation in the background so the HTTP server can
+	// bind to its port immediately. Cloudflare's startAndWaitForPorts health
+	// check will succeed as soon as the port is open; the transcribe handler
+	// will block (via svcOnce) until initialisation finishes.
+	initService := func() {
+		svcOnce.Do(func() {
+			svc, svcErr = bootstrap.NewTranscriptionServiceFromEnv()
+			if svcErr != nil {
+				log.Printf("Service initialization failed: %v", svcErr)
+			}
+		})
 	}
+	go initService()
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/transcribe", api.NewTranscribeHandler(transcriptionService))
+
+	mux.Handle("/api/transcribe", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Block until background init completes (no-op on subsequent calls).
+		initService()
+		if svcErr != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("service initialization failed: %v", svcErr)})
+			return
+		}
+		api.NewTranscribeHandler(svc).ServeHTTP(w, r)
+	}))
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
