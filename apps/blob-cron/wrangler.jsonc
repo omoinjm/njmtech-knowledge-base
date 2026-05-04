@@ -9,7 +9,8 @@
   "containers": [
     {
       "class_name": "BlobCronContainer",
-      "image": "./Dockerfile"
+      "image": "./Dockerfile",
+      "enable_ssh": true
     }
   ],
   "durable_objects": {

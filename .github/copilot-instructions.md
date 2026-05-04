@@ -61,4 +61,61 @@ Once deployed, the Swagger UI is available at:
 | `GET` | `/docs` | — | Swagger UI |
 | `GET` | `/docs/openapi.json` | — | OpenAPI 3.1 spec |
 
-Auth = `Authorization: Bearer <YT_TRANSCRIBE_ADMIN_TOKEN>`.
+---
+
+## blob-cron Worker
+
+### Adding or updating routes
+
+When you add, remove, or modify a route in `apps/blob-cron/worker.mjs` or `apps/blob-cron/main.py`, you **must** keep the following two files in sync:
+
+1. **`apps/blob-cron/docs/openapi.json`** — the OpenAPI 3.1 spec. Update the `paths` object to reflect the change.
+
+2. **`apps/blob-cron/worker.mjs` — `OPENAPI_SPEC` constant** (line 1) — minified, JSON-stringified copy of `openapi.json`. After editing `openapi.json`, regenerate it with:
+
+   ```bash
+   python3 - <<'EOF'
+   import json
+
+   with open('apps/blob-cron/docs/openapi.json') as f:
+       data = json.load(f)
+
+   with open('apps/blob-cron/worker.mjs') as f:
+       content = f.read()
+
+   lines = [l for l in content.split('\n') if not l.startswith('const OPENAPI_SPEC =')]
+   content = '\n'.join(lines)
+
+   compact = json.dumps(data, separators=(',', ':'))
+   const_line = f'const OPENAPI_SPEC = {json.dumps(compact)};'
+
+   lines = content.split('\n')
+   insert_at = next(i for i, l in enumerate(lines) if l.startswith('import '))
+   lines.insert(insert_at, const_line)
+
+   with open('apps/blob-cron/worker.mjs', 'w') as f:
+       f.write('\n'.join(lines))
+
+   print(f"Done. {len(const_line)} chars")
+   EOF
+   ```
+
+### Docs URL
+
+- **UI:** `https://blob-cron-worker.njmalaza.workers.dev/docs`
+- **Raw spec:** `https://blob-cron-worker.njmalaza.workers.dev/docs/openapi.json`
+
+### Route overview
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/` | — | Service info |
+| `POST` | `/admin/run` | ✓ | Trigger blob-cron job |
+| `GET` | `/admin/state` | ✓ | Container state |
+| `GET` | `/admin/job-result` | ✓ | Last job result (DO storage) |
+| `GET` | `/admin/logs` | ✓ | Raw stdout/stderr from container |
+| `GET` | `/docs` | — | Swagger UI |
+| `GET` | `/docs/openapi.json` | — | OpenAPI 3.1 spec |
+
+Auth = `Authorization: Bearer <BLOB_CRON_ADMIN_TOKEN>`.
+

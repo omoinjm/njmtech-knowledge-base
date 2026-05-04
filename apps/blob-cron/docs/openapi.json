@@ -1,0 +1,248 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "blob-cron Worker API",
+    "description": "Cloudflare Worker API for the blob-cron job \u2014 scans directories, transforms markdown, and uploads to blob storage.\n\nAll `/admin/*` routes require `Authorization: Bearer <BLOB_CRON_ADMIN_TOKEN>`.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://blob-cron-worker.njmalaza.workers.dev",
+      "description": "Cloudflare Workers (production)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "adminBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Admin token set via `BLOB_CRON_ADMIN_TOKEN` wrangler secret."
+      }
+    },
+    "schemas": {
+      "ContainerState": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "running",
+              "stopped",
+              "unknown"
+            ]
+          },
+          "lastChange": {
+            "type": "integer",
+            "description": "Unix timestamp (ms) of the last state transition."
+          }
+        }
+      },
+      "RunResponse": {
+        "type": "object",
+        "properties": {
+          "started": {
+            "type": "boolean"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          }
+        }
+      },
+      "JobResultResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error",
+              "no result yet"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ServiceInfoResponse": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Service info",
+        "description": "Returns the service name and available endpoints.",
+        "operationId": "serviceInfo",
+        "responses": {
+          "200": {
+            "description": "Service info.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/run": {
+      "post": {
+        "summary": "Trigger blob-cron job",
+        "description": "Starts the blob-cron container on demand. Also runs on a cron every minute.",
+        "operationId": "triggerRun",
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Job started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized."
+          }
+        }
+      }
+    },
+    "/admin/state": {
+      "get": {
+        "summary": "Container state",
+        "description": "Returns the current state of the blob-cron container.",
+        "operationId": "getState",
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized."
+          }
+        }
+      }
+    },
+    "/admin/job-result": {
+      "get": {
+        "summary": "Last job result",
+        "description": "Returns the status and message from the most recent container run. Stored in Durable Object SQLite.",
+        "operationId": "getJobResult",
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Last job result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResultResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized."
+          }
+        }
+      }
+    },
+    "/admin/logs": {
+      "get": {
+        "summary": "Container raw logs",
+        "description": "Returns the full stdout/stderr buffer from the container since its last start.",
+        "operationId": "getLogs",
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw container log output as plain text.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized."
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "summary": "Swagger UI",
+        "description": "Interactive API documentation.",
+        "operationId": "swaggerUI",
+        "responses": {
+          "200": {
+            "description": "HTML Swagger UI page."
+          }
+        }
+      }
+    },
+    "/docs/openapi.json": {
+      "get": {
+        "summary": "OpenAPI spec",
+        "description": "OpenAPI 3.1 specification for this API.",
+        "operationId": "openapiSpec",
+        "responses": {
+          "200": {
+            "description": "OpenAPI JSON spec.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

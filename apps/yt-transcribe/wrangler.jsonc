@@ -9,11 +9,13 @@
   "containers": [
     {
       "class_name": "YTTranscribeAPIContainer",
-      "image": "./Dockerfile"
+      "image": "./Dockerfile",
+      "enable_ssh": true
     },
     {
       "class_name": "YTTranscribeJobContainer",
-      "image": "./Dockerfile"
+      "image": "./Dockerfile",
+      "enable_ssh": true
     }
   ],
   "durable_objects": {
