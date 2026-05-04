@@ -36,5 +36,9 @@
         "YTTranscribeJobContainer"
       ]
     }
-  ]
+  ],
+  "observability": {
+  "enabled": true
 }
+}
+  
