@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -40,8 +41,34 @@ type healthResponse struct {
 	Status string `json:"status"`
 }
 
+// reportJobStatus POSTs the job result to JOB_CALLBACK_URL (if set) so the
+// Worker can surface errors that would otherwise be invisible in wrangler tail.
+func reportJobStatus(status, message string) {
+	cbURL := os.Getenv("JOB_CALLBACK_URL")
+	if cbURL == "" {
+		return
+	}
+	body, _ := json.Marshal(map[string]string{"status": status, "message": message})
+	req, err := http.NewRequest("POST", cbURL, bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token := os.Getenv("JOB_CALLBACK_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, _ = http.DefaultClient.Do(req.WithContext(ctx))
+}
+
 // handleFatalError logs a fatal error and exits the program.
 func handleFatalError(message string, err error) {
+	fullMsg := message
+	if err != nil {
+		fullMsg = message + ": " + err.Error()
+	}
+	reportJobStatus("error", fullMsg)
 	if err != nil {
 		log.Fatalf("%s: %v", message, err)
 	}
@@ -137,6 +164,50 @@ func runServer(port string) {
 		api.NewTranscribeHandler(svc).ServeHTTP(w, r)
 	}))
 
+	mux.HandleFunc("/debug/env", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		keys := []string{
+			"WHISPER_MODEL_PATH", "UPLOAD_BLOB_API_URL", "UPLOAD_BLOB_API_TOKEN",
+			"POSTGRES_URL", "INFISICAL_ENABLED", "PORT",
+		}
+		result := map[string]interface{}{}
+		for _, k := range keys {
+			result[k] = os.Getenv(k) != ""
+		}
+		_ = json.NewEncoder(w).Encode(result)
+	})
+
+	mux.HandleFunc("/debug/db", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		postgresURL := os.Getenv("POSTGRES_URL")
+		result := map[string]interface{}{"postgres_url_set": postgresURL != ""}
+		if postgresURL == "" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			result["error"] = "POSTGRES_URL not set"
+			_ = json.NewEncoder(w).Encode(result)
+			return
+		}
+		ctx := r.Context()
+		repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			result["error"] = fmt.Sprintf("connect failed: %v", err)
+			_ = json.NewEncoder(w).Encode(result)
+			return
+		}
+		defer repo.Close(ctx)
+		items, err := repo.FetchAll(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			result["error"] = fmt.Sprintf("query failed: %v", err)
+			_ = json.NewEncoder(w).Encode(result)
+			return
+		}
+		result["ok"] = true
+		result["media_items_count"] = len(items)
+		_ = json.NewEncoder(w).Encode(result)
+	})
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -219,8 +290,11 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 	}
 	if item == nil {
 		if nextRetry, ok := state.earliestNextAttempt(now); ok {
-			fmt.Printf("No eligible items are ready yet. Next retry after %s.\n", nextRetry.Format(time.RFC3339))
+			msg := fmt.Sprintf("No eligible items are ready yet. Next retry after %s.", nextRetry.Format(time.RFC3339))
+			fmt.Println(msg)
+			reportJobStatus("idle", msg)
 		} else {
+			reportJobStatus("idle", "No unprocessed items found in the database. Nothing to do.")
 			fmt.Println("No unprocessed items found in the database. Nothing to do.")
 		}
 		return
@@ -235,7 +309,9 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 		if saveErr := saveRetryState(retryPath, state); saveErr != nil {
 			log.Printf("Warning: failed to save retry state: %v", saveErr)
 		}
-		log.Printf("Transcription failed for id %s; retry scheduled for %s", item.ID, entry.NextAttempt.Format(time.RFC3339))
+		msg := fmt.Sprintf("Transcription failed for id %s; retry scheduled for %s: %v", item.ID, entry.NextAttempt.Format(time.RFC3339), err)
+		log.Println(msg)
+		reportJobStatus("error", msg)
 		return
 	}
 
@@ -244,7 +320,9 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 		if saveErr := saveRetryState(retryPath, state); saveErr != nil {
 			log.Printf("Warning: failed to save retry state: %v", saveErr)
 		}
-		log.Printf("Transcription succeeded but db update failed for id %s; retry scheduled for %s", item.ID, entry.NextAttempt.Format(time.RFC3339))
+		msg := fmt.Sprintf("Transcription succeeded but db update failed for id %s; retry scheduled for %s: %v", item.ID, entry.NextAttempt.Format(time.RFC3339), err)
+		log.Println(msg)
+		reportJobStatus("error", msg)
 		return
 	}
 
@@ -253,7 +331,9 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 		log.Printf("Warning: failed to clear retry state: %v", err)
 	}
 
-	fmt.Printf("transcript_url updated in database for id %s\n", item.ID)
+	msg := fmt.Sprintf("transcript_url updated in database for id %s → %s", item.ID, blobURL)
+	fmt.Println(msg)
+	reportJobStatus("success", msg)
 }
 
 // runReprocessAll fetches every record in media_items and re-transcribes each one,

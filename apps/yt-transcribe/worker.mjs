@@ -1,4 +1,5 @@
 import { Container, getContainer } from "@cloudflare/containers";
+const OPENAPI_SPEC = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"yt-transcribe Worker API\",\"description\":\"Cloudflare Worker API for downloading, transcribing, and storing YouTube video transcripts.\\n\\nAll `/admin/*` routes require `Authorization: Bearer <YT_TRANSCRIBE_ADMIN_TOKEN>`.\",\"version\":\"1.0.0\"},\"servers\":[{\"url\":\"https://yt-transcribe-worker.njmalaza.workers.dev\",\"description\":\"Cloudflare Workers (production)\"}],\"components\":{\"securitySchemes\":{\"adminBearer\":{\"type\":\"http\",\"scheme\":\"bearer\",\"description\":\"Admin token set via `YT_TRANSCRIBE_ADMIN_TOKEN` wrangler secret.\"}},\"schemas\":{\"TranscribeRequest\":{\"type\":\"object\",\"required\":[\"url\"],\"properties\":{\"url\":{\"type\":\"string\",\"format\":\"uri\",\"example\":\"https://www.youtube.com/watch?v=rdWZo5PD9Ek\"}}},\"TranscribeResponse\":{\"type\":\"object\",\"properties\":{\"transcript_url\":{\"type\":\"string\",\"format\":\"uri\",\"description\":\"Blob URL where the transcript text file was uploaded.\"}}},\"ContainerState\":{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\",\"enum\":[\"healthy\",\"running\",\"stopped\",\"unknown\"]},\"lastChange\":{\"type\":\"integer\",\"description\":\"Unix timestamp (ms) of the last state transition.\"}}},\"AdminStateResponse\":{\"type\":\"object\",\"properties\":{\"api\":{\"$ref\":\"#/components/schemas/ContainerState\"},\"dbJob\":{\"$ref\":\"#/components/schemas/ContainerState\"},\"reprocessAll\":{\"$ref\":\"#/components/schemas/ContainerState\"}}},\"JobStartedResponse\":{\"type\":\"object\",\"properties\":{\"started\":{\"type\":\"boolean\"},\"job\":{\"type\":\"string\"},\"state\":{\"$ref\":\"#/components/schemas/ContainerState\"}}},\"JobResultResponse\":{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\",\"enum\":[\"success\",\"error\",\"idle\",\"no result yet\"]},\"message\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\",\"format\":\"date-time\"}}},\"TestEnvResponse\":{\"type\":\"object\",\"description\":\"Boolean map of whether each required env var is set in the container.\",\"properties\":{\"WHISPER_MODEL_PATH\":{\"type\":\"boolean\"},\"UPLOAD_BLOB_API_URL\":{\"type\":\"boolean\"},\"UPLOAD_BLOB_API_TOKEN\":{\"type\":\"boolean\"},\"POSTGRES_URL\":{\"type\":\"boolean\"},\"PORT\":{\"type\":\"boolean\"},\"INFISICAL_ENABLED\":{\"type\":\"boolean\"}}},\"TestDbResponse\":{\"type\":\"object\",\"properties\":{\"ok\":{\"type\":\"boolean\"},\"postgres_url_set\":{\"type\":\"boolean\"},\"media_items_count\":{\"type\":\"integer\"}}},\"ErrorResponse\":{\"type\":\"object\",\"properties\":{\"error\":{\"type\":\"string\"}}}}},\"paths\":{\"/\":{\"get\":{\"summary\":\"Health check\",\"description\":\"Returns 200 OK when the API container is running.\",\"operationId\":\"healthCheck\",\"responses\":{\"200\":{\"description\":\"API container is healthy.\"}}}},\"/api/transcribe\":{\"post\":{\"summary\":\"Transcribe a YouTube video\",\"description\":\"Downloads audio from the given YouTube URL, transcribes it with whisper.cpp, uploads the transcript to blob storage, and returns the blob URL.\",\"operationId\":\"transcribeVideo\",\"requestBody\":{\"required\":true,\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/TranscribeRequest\"}}}},\"responses\":{\"200\":{\"description\":\"Transcription successful.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/TranscribeResponse\"}}}},\"400\":{\"description\":\"Bad request (missing or invalid URL).\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/ErrorResponse\"}}}},\"500\":{\"description\":\"Transcription or upload failed.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/ErrorResponse\"}}}},\"503\":{\"description\":\"Service initialisation failed (missing env vars or Infisical error).\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/ErrorResponse\"}}}}}}},\"/admin/state\":{\"get\":{\"summary\":\"Container state\",\"description\":\"Returns the current state of the API container and both job containers.\",\"operationId\":\"getAdminState\",\"security\":[{\"adminBearer\":[]}],\"responses\":{\"200\":{\"description\":\"Current container states.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/AdminStateResponse\"}}}},\"401\":{\"description\":\"Unauthorized.\"}}}},\"/admin/jobs/db\":{\"post\":{\"summary\":\"Run DB transcription job\",\"description\":\"Starts a job container that fetches the next unprocessed `media_items` row, transcribes it, and updates `transcript_url`. Runs on a cron every 15 minutes; this endpoint triggers it on demand.\",\"operationId\":\"triggerDbJob\",\"security\":[{\"adminBearer\":[]}],\"responses\":{\"202\":{\"description\":\"Job started.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/JobStartedResponse\"}}}},\"401\":{\"description\":\"Unauthorized.\"}}}},\"/admin/jobs/reprocess-all\":{\"post\":{\"summary\":\"Reprocess all media items\",\"description\":\"Starts a job container that re-transcribes every row in `media_items`, overwriting existing `transcript_url` values. Individual failures are logged and skipped.\",\"operationId\":\"triggerReprocessAllJob\",\"security\":[{\"adminBearer\":[]}],\"responses\":{\"202\":{\"description\":\"Job started.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/JobStartedResponse\"}}}},\"401\":{\"description\":\"Unauthorized.\"}}}},\"/admin/job-result\":{\"get\":{\"summary\":\"Last job result\",\"description\":\"Returns the status and message reported by the most recent job container run. Stored in Durable Object SQLite \\u2014 survives Worker restarts.\",\"operationId\":\"getJobResult\",\"security\":[{\"adminBearer\":[]}],\"responses\":{\"200\":{\"description\":\"Last job result, or `{\\\"status\\\": \\\"no result yet\\\"}` if no job has run since deploy.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/JobResultResponse\"}}}},\"401\":{\"description\":\"Unauthorized.\"}}}},\"/admin/test-env\":{\"get\":{\"summary\":\"Check container env vars\",\"description\":\"Starts the API container and returns a boolean map of whether each required environment variable is set.\",\"operationId\":\"testEnv\",\"security\":[{\"adminBearer\":[]}],\"responses\":{\"200\":{\"description\":\"Env var presence map.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/TestEnvResponse\"}}}},\"401\":{\"description\":\"Unauthorized.\"}}}},\"/admin/test-db\":{\"get\":{\"summary\":\"Test database connectivity\",\"description\":\"Starts the API container, connects to Postgres, and returns the row count of `media_items`.\",\"operationId\":\"testDb\",\"security\":[{\"adminBearer\":[]}],\"responses\":{\"200\":{\"description\":\"DB connectivity result.\",\"content\":{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/TestDbResponse\"}}}},\"401\":{\"description\":\"Unauthorized.\"}}}}}}";
 
 const API_INSTANCE_NAME = "api";
 const DB_JOB_INSTANCE_NAME = "db-job";
@@ -37,6 +38,8 @@ function buildYTTranscribeEnv(env, extra = {}) {
     INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: env.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET,
     INFISICAL_CLIENT_ID: env.INFISICAL_CLIENT_ID,
     INFISICAL_CLIENT_SECRET: env.INFISICAL_CLIENT_SECRET,
+    JOB_CALLBACK_URL: "https://yt-transcribe-worker.njmalaza.workers.dev/admin/job-result",
+    JOB_CALLBACK_TOKEN: env.YT_TRANSCRIBE_ADMIN_TOKEN,
     ...extra,
   });
 }
@@ -115,11 +118,76 @@ export class YTTranscribeJobContainer extends Container {
   onStop({ exitCode, reason }) {
     console.log("yt-transcribe job container stopped", { exitCode, reason });
   }
+
+  // Store/retrieve the last job result in Durable Object persistent storage.
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/result" && request.method === "POST") {
+      const body = await request.json();
+      await this.ctx.storage.put("lastJobResult", { ...body, timestamp: new Date().toISOString() });
+      return new Response("ok", { status: 200 });
+    }
+    if (url.pathname === "/result" && request.method === "GET") {
+      const result = await this.ctx.storage.get("lastJobResult");
+      return Response.json(result ?? { status: "no result yet" });
+    }
+    return super.fetch(request);
+  }
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/docs/openapi.json") {
+      return new Response(OPENAPI_SPEC, {
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
+    }
+
+    if (url.pathname === "/docs" || url.pathname === "/docs/") {
+      return new Response(
+        `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>yt-transcribe API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({ url: "/docs/openapi.json", dom_id: "#swagger-ui", presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset] });
+  </script>
+</body>
+</html>`,
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+
+    // Receives status callbacks from the job container binary — stored in DO storage.
+    if (url.pathname === "/admin/job-result" && request.method === "POST") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      const body = await request.text();
+      return getJobContainer(env, DB_JOB_INSTANCE_NAME).fetch(
+        new Request("http://do/result", { method: "POST", body, headers: { "content-type": "application/json" } }),
+      );
+    }
+
+    if (url.pathname === "/admin/job-result" && request.method === "GET") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      return getJobContainer(env, DB_JOB_INSTANCE_NAME).fetch(
+        new Request("http://do/result", { method: "GET" }),
+      );
+    }
 
     if (url.pathname === "/admin/state" && request.method === "GET") {
       const unauthorized = await requireAdmin(request, env);
@@ -166,6 +234,24 @@ export default {
         },
         { status: 202 },
       );
+    }
+
+    if (url.pathname === "/admin/test-env" && request.method === "GET") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      const container = await startAPIContainer(env);
+      return container.fetch(new Request("http://container/debug/env", { method: "GET" }));
+    }
+
+    if (url.pathname === "/admin/test-db" && request.method === "GET") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) {
+        return unauthorized;
+      }
+      const container = await startAPIContainer(env);
+      return container.fetch(new Request("http://container/debug/db", { method: "GET" }));
     }
 
     const container = await startAPIContainer(env);
