@@ -53,7 +53,9 @@ Once deployed, the Swagger UI is available at:
 | `GET` | `/admin/state` | ✓ | Container states |
 | `POST` | `/admin/jobs/db` | ✓ | Trigger DB transcription job |
 | `POST` | `/admin/jobs/reprocess-all` | ✓ | Re-transcribe all media items |
-| `GET` | `/admin/job-result` | ✓ | Last job result/error message |
+| `GET` | `/admin/job-result` | ✓ | Last job result/error message (DO storage) |
+| `GET` | `/admin/logs/job` | ✓ | Raw stdout/stderr from job container |
+| `GET` | `/admin/logs/api` | ✓ | Raw stdout/stderr from API container |
 | `GET` | `/admin/test-env` | ✓ | Check env vars set in container |
 | `GET` | `/admin/test-db` | ✓ | Test DB connectivity + row count |
 | `GET` | `/docs` | — | Swagger UI |

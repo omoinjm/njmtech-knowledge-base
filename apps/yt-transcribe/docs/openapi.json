@@ -285,6 +285,36 @@
           "401": { "description": "Unauthorized." }
         }
       }
+    },
+    "/admin/logs/job": {
+      "get": {
+        "summary": "Job container raw logs",
+        "description": "Returns the full stdout/stderr buffer from the job (db) container since its last start. Useful for seeing raw Go binary output that is not captured by wrangler tail.",
+        "operationId": "getJobLogs",
+        "security": [{ "adminBearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Raw container log output as plain text.",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          },
+          "401": { "description": "Unauthorized." }
+        }
+      }
+    },
+    "/admin/logs/api": {
+      "get": {
+        "summary": "API container raw logs",
+        "description": "Returns the full stdout/stderr buffer from the API container since its last start.",
+        "operationId": "getApiLogs",
+        "security": [{ "adminBearer": [] }],
+        "responses": {
+          "200": {
+            "description": "Raw container log output as plain text.",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          },
+          "401": { "description": "Unauthorized." }
+        }
+      }
     }
   }
 }
