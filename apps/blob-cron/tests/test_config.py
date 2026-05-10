@@ -9,9 +9,9 @@ def test_validate_config_missing_vars(monkeypatch):
     """
     monkeypatch.delenv("UPLOAD_BLOB_API_URL", raising=False)
     monkeypatch.delenv("BLOB_API_URL", raising=False)
-    monkeypatch.setenv("UPLOAD_BLOB_API_TOKEN", "test_token")
+    monkeypatch.delenv("UPLOAD_BLOB_API_TOKEN", raising=False)
     monkeypatch.setenv("POSTGRES_URL", "postgres://example")
-    with pytest.raises(ValueError, match="Missing required environment variables: UPLOAD_BLOB_API_URL"):
+    with pytest.raises(ValueError, match="Missing required environment variables: UPLOAD_BLOB_API_TOKEN"):
         config.validate_config()
 
 def test_validate_config_all_vars_present(monkeypatch):
