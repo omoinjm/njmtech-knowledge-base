@@ -74,6 +74,8 @@ export default function GraphView({
   const [tagsEnabled, setTagsEnabled] = useTagVisibility(true);
 
   const zoomLevelRef = useRef(1);
+  const showTagsByZoomRef = useRef(showTagsByZoom);
+  const zoomStateFrameRef = useRef<number | null>(null);
   const hasInitiallyFit = useRef(false);
   const imgCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const stars = useRef<{ x: number; y: number; opacity: number }[]>([]);
@@ -110,6 +112,18 @@ export default function GraphView({
       }
     });
   }, [allLinks]);
+
+  useEffect(() => {
+    showTagsByZoomRef.current = showTagsByZoom;
+  }, [showTagsByZoom]);
+
+  useEffect(() => {
+    return () => {
+      if (zoomStateFrameRef.current !== null) {
+        window.cancelAnimationFrame(zoomStateFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -442,7 +456,20 @@ export default function GraphView({
         onZoom={({ k }) => {
           zoomLevelRef.current = k;
           const shouldShow = k >= ZOOM_THRESHOLDS.tag;
-          if (shouldShow !== showTagsByZoom) setShowTagsByZoom(shouldShow);
+          if (shouldShow === showTagsByZoomRef.current) {
+            return;
+          }
+
+          showTagsByZoomRef.current = shouldShow;
+
+          if (zoomStateFrameRef.current !== null) {
+            window.cancelAnimationFrame(zoomStateFrameRef.current);
+          }
+
+          zoomStateFrameRef.current = window.requestAnimationFrame(() => {
+            setShowTagsByZoom(shouldShow);
+            zoomStateFrameRef.current = null;
+          });
         }}
         backgroundColor={COSMIC_COLORS.bgEdge}
         cooldownTicks={200}
