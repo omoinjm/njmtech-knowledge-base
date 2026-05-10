@@ -14,7 +14,7 @@ class MockBlobStorage(BlobStorage):
     async def list(self, folder: str):
         return self._blobs
     async def download(self, pathname: str, url: str = None):
-        pass
+        return b"test transcript content"
     async def upload(self, pathname: str, content: bytes):
         pass
     async def delete(self, pathname: str):
@@ -26,8 +26,12 @@ async def test_scan_and_process_qualifying_file():
     Tests that the scanner correctly identifies and processes a single .txt file
     in a directory.
     """
-    # Note: the scanner now filters out duplicated root folders
-    blobs = [{'pathname': 'njmtech-blob-api/test_dir/test.txt'}]
+    # Scanner expects directory records with txt_url/md_url fields.
+    blobs = [{
+        'pathname': 'njmtech-blob-api/test_dir',
+        'txt_url': 'https://s3.example.com/njmtech-blob-api/test_dir/test.txt',
+        'md_url': None,
+    }]
     blob_storage = MockBlobStorage(blobs)
     file_processor = MockFileProcessor()
     scanner = DirectoryScanner(blob_storage, file_processor)
@@ -51,10 +55,11 @@ async def test_scan_and_process_non_qualifying_file_md():
     """
     Tests that the scanner skips directories containing .md files.
     """
-    blobs = [
-        {'pathname': 'njmtech-blob-api/test_dir/test.txt'},
-        {'pathname': 'njmtech-blob-api/test_dir/test.md'}
-    ]
+    blobs = [{
+        'pathname': 'njmtech-blob-api/test_dir',
+        'txt_url': 'https://s3.example.com/njmtech-blob-api/test_dir/test.txt',
+        'md_url': 'https://s3.example.com/njmtech-blob-api/test_dir/test.md',
+    }]
     blob_storage = MockBlobStorage(blobs)
     file_processor = MockFileProcessor()
     scanner = DirectoryScanner(blob_storage, file_processor)
@@ -73,7 +78,11 @@ async def test_scan_and_process_skip_no_transcript():
     """
     Tests that the scanner skips directories without any transcript files.
     """
-    blobs = [{'pathname': 'njmtech-blob-api/test_dir/orphaned.md'}]
+    blobs = [{
+        'pathname': 'njmtech-blob-api/test_dir',
+        'txt_url': None,
+        'md_url': 'https://s3.example.com/njmtech-blob-api/test_dir/orphaned.md',
+    }]
     blob_storage = MockBlobStorage(blobs)
     file_processor = MockFileProcessor()
     scanner = DirectoryScanner(blob_storage, file_processor)
