@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, X, ChevronUp, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -32,6 +32,8 @@ export interface NodePopupProps {
   onGenerateQuestions: (transcript: string, title: string) => Promise<string[]>;
   /** Injected server action for AI question answering */
   onAnswerQuestion: (question: string, transcript: string, title: string) => Promise<string>;
+  /** Callback to trigger AI categorization */
+  onCategorize?: (id: string, transcriptUrl: string) => Promise<void>;
 }
 
 /**
@@ -47,8 +49,11 @@ export const NodePopup: React.FC<NodePopupProps> = ({
   containerHeight,
   onGenerateQuestions,
   onAnswerQuestion,
+  onCategorize,
 }) => {
   const [panelOpen, setPanelOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
   const item = node.item;
 
   if (!item) return null;
@@ -57,7 +62,31 @@ export const NodePopup: React.FC<NodePopupProps> = ({
     setPanelOpen(prev => !prev);
   };
 
+  const handleCategorize = () => {
+    if (!item?.transcriptUrl || !onCategorize) {
+      return;
+    }
+
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        await onCategorize(item.id, item.transcriptUrl!);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : "Failed to categorize item");
+      }
+    });
+  };
+
   const POPUP_WIDTH = 320;
+  const thumbnailHost = (() => {
+    try {
+      return item.thumbnailUrl ? new URL(item.thumbnailUrl).hostname : "";
+    } catch {
+      return "";
+    }
+  })();
+  const shouldBypassImageOptimization =
+    thumbnailHost.endsWith("cdninstagram.com") || thumbnailHost.endsWith("fbcdn.net");
   // Basic overflow check
   const finalX = screenX + POPUP_WIDTH > containerWidth ? screenX - POPUP_WIDTH - 40 : screenX;
   const finalY = screenY + 400 > containerHeight ? Math.max(10, containerHeight - 530) : screenY;
@@ -84,6 +113,7 @@ export const NodePopup: React.FC<NodePopupProps> = ({
               fill
               className="object-cover"
               sizes="64px"
+              unoptimized={shouldBypassImageOptimization}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -174,6 +204,18 @@ export const NodePopup: React.FC<NodePopupProps> = ({
               {panelOpen ? 'Hide' : 'Ask AI'}
             </Button>
           )}
+          {item.transcriptUrl && !item.category && onCategorize && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCategorize}
+              disabled={isPending}
+              className="h-8 border-amber-500/30 text-[11px] text-amber-300/80 hover:bg-amber-500/10 hover:text-amber-200"
+            >
+              <Sparkles size={12} className="mr-1.5" />
+              Categorize
+            </Button>
+          )}
         </div>
         <Button
           size="sm"
@@ -186,6 +228,11 @@ export const NodePopup: React.FC<NodePopupProps> = ({
           </a>
         </Button>
       </div>
+      {actionError && (
+        <div className="shrink-0 border-t border-red-500/10 px-3 py-2 text-[11px] text-red-300/80">
+          {actionError}
+        </div>
+      )}
     </motion.div>
   );
 };

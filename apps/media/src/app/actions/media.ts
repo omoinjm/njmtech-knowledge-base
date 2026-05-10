@@ -10,6 +10,7 @@ import {
   dbUpdateCategory 
 } from "@/lib/db";
 import { fetchVideoMeta } from "@/lib/metadata";
+import { checkBlobFiles } from "@/lib/blob-utils";
 import { categorizeTranscript } from "@/lib/categorize";
 import type { MediaItem } from "@/types/media";
 import type { ActionResponse, AddMediaResult } from "@/types/api";
@@ -43,6 +44,7 @@ async function resolveMediaItem(
   url: string
 ): Promise<Omit<MediaItem, "id" | "createdAt">> {
   const meta = await fetchVideoMeta(url);
+  const blobFiles = await checkBlobFiles(meta.platform, meta.videoId);
 
   return {
     url,
@@ -51,8 +53,8 @@ async function resolveMediaItem(
     title: meta.title,
     thumbnailUrl: meta.thumbnailUrl,
     authorName: meta.authorName,
-    transcriptUrl: null,
-    notesUrl: null,
+    transcriptUrl: blobFiles.transcriptUrl,
+    notesUrl: blobFiles.notesUrl,
     category: null,
     tags: [],
   };
@@ -73,10 +75,6 @@ export async function addMediaItem(
     if (!trimmedUrl) return { success: false, error: "URL is required" };
 
     const existing = await dbGetByUrl(trimmedUrl);
-    if (existing && existing.platform !== "unknown") {
-      return { success: true, data: { item: existing } };
-    }
-
     const resolvedItem = await resolveMediaItem(trimmedUrl);
 
     const item = await dbUpsertMediaItem({
@@ -90,7 +88,7 @@ export async function addMediaItem(
       notesUrl: resolvedItem.notesUrl,
     });
 
-    if (resolvedItem.transcriptUrl) {
+    if (resolvedItem.transcriptUrl && !existing?.category) {
       // Background categorization
       categorizeTranscript(resolvedItem.transcriptUrl).then(async (result) => {
         if (result) {

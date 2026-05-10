@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { FetchState } from "@/types/ui";
+import { getInlineMediaFileUrl } from "@/lib/media-file-url";
 
 /**
  * Hook to fetch and manage the state of a raw transcript.
@@ -25,8 +26,14 @@ export function useTranscript(
     // Don't re-fetch if already loading or success
     if (state.status === "loading" || state.status === "success") return;
 
+    const readableUrl = getInlineMediaFileUrl(url, "transcript");
+    if (!readableUrl) {
+      setState({ status: "idle" });
+      return;
+    }
+
     setState({ status: "loading" });
-    fetch(url)
+    fetch(readableUrl)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch transcript");
         return r.text();

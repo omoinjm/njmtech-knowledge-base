@@ -34,5 +34,8 @@ export const env = {
   get githubToken() { return requireEnv("GITHUB_TOKEN", { optional: true }); },
   /** Connection string for the Neon database */
   get databaseUrl() { return requireEnv("POSTGRES_URL", { fallbackKey: "DATABASE_URL" }); },
+  /** Upload-blob API base URL for object storage lookups */
+  get uploadBlobApiUrl() { return process.env.UPLOAD_BLOB_API_URL || process.env.BLOB_API_URL || "https://api.blob.njmtech.co.za"; },
+  /** Bearer token for the upload-blob API */
+  get uploadBlobApiToken() { return requireEnv("UPLOAD_BLOB_API_TOKEN", { optional: true }); },
 } as const;
-

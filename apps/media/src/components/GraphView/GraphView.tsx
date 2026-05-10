@@ -118,7 +118,6 @@ export default function GraphView({
       // Handle image loading if not in cache
       if (node.item?.thumbnailUrl && !imgCache.current.has(node.item.thumbnailUrl)) {
         const img = new Image();
-        img.src = node.item.thumbnailUrl;
         img.onload = () => {
           imgCache.current.set(node.item!.thumbnailUrl!, img);
           // Trigger a re-render of the graph once image is loaded
@@ -126,7 +125,11 @@ export default function GraphView({
             fgRef.current.zoom(fgRef.current.zoom());
           }
         };
+        img.onerror = () => {
+          imgCache.current.set(node.item!.thumbnailUrl!, img);
+        };
         imgCache.current.set(node.item.thumbnailUrl, img); // Set early to avoid double-loading
+        img.src = node.item.thumbnailUrl;
       }
       drawMediaNode(node, ctx, globalScale, opacity, imgCache.current);
     }
@@ -318,6 +321,7 @@ export default function GraphView({
             onClose={() => setPopupNode(null)}
             containerWidth={window.innerWidth}
             containerHeight={window.innerHeight}
+            onCategorize={onCategorize}
             onGenerateQuestions={onGenerateQuestions}
             onAnswerQuestion={onAnswerQuestion}
           />

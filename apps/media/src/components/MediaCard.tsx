@@ -10,6 +10,7 @@ import type { MediaItem } from "@/types/media";
 import { PlatformIcon } from "./PlatformIcon";
 import { AIPanel } from "./shared/AIPanel";
 import { parseTranscript } from "@/lib/parseTranscript";
+import { getInlineMediaFileUrl } from "@/lib/media-file-url";
 
 /**
  * Prop interface for the MediaCard component.
@@ -71,6 +72,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   const thumbnail = (item.thumbnailUrl && item.thumbnailUrl.trim() !== "") 
     ? item.thumbnailUrl 
     : (FALLBACK_THUMBNAILS[item.platform as keyof typeof FALLBACK_THUMBNAILS] ?? FALLBACK_THUMBNAILS.unknown);
+  const displayTags = Array.from(new Set(item.tags.map((tag) => tag.trim()).filter(Boolean)));
+  const thumbnailHost = (() => {
+    try {
+      return new URL(thumbnail).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  const shouldBypassImageOptimization =
+    thumbnailHost.endsWith("cdninstagram.com") || thumbnailHost.endsWith("fbcdn.net");
     
   const [isPending, startTransition] = useTransition();
   const [playing, setPlaying] = useState(false);
@@ -109,10 +120,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   };
 
   const handleTranscriptClick = async () => {
-    if (!transcriptOpen && transcriptContent === null && item.transcriptUrl) {
+    const transcriptUrl = getInlineMediaFileUrl(item.transcriptUrl, "transcript");
+
+    if (!transcriptOpen && transcriptContent === null && transcriptUrl) {
       setTranscriptLoading(true);
       try {
-        const res = await fetch(item.transcriptUrl);
+        const res = await fetch(transcriptUrl);
         const text = await res.text();
         setTranscriptContent(text);
       } catch {
@@ -123,10 +136,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     }
     
     // Also fetch notes for summary if not already loaded
-    if (!transcriptOpen && notesContent === null && item.notesUrl) {
+    const notesUrl = getInlineMediaFileUrl(item.notesUrl, "notes");
+
+    if (!transcriptOpen && notesContent === null && notesUrl) {
       setNotesLoading(true);
       try {
-        const res = await fetch(item.notesUrl);
+        const res = await fetch(notesUrl);
         const text = await res.text();
         setNotesContent(text);
       } catch {
@@ -140,10 +155,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   };
 
   const handleNotesClick = async () => {
-    if (!notesOpen && notesContent === null && item.notesUrl) {
+    const notesUrl = getInlineMediaFileUrl(item.notesUrl, "notes");
+
+    if (!notesOpen && notesContent === null && notesUrl) {
       setNotesLoading(true);
       try {
-        const res = await fetch(item.notesUrl);
+        const res = await fetch(notesUrl);
         const text = await res.text();
         setNotesContent(text);
       } catch {
@@ -153,6 +170,21 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       }
     }
     setNotesOpen(prev => !prev);
+  };
+
+  const handleCategorizeClick = () => {
+    if (!item.transcriptUrl || !onCategorize) {
+      return;
+    }
+
+    setActionError(null);
+    startTransition(async () => {
+      try {
+        await onCategorize(item.id, item.transcriptUrl!);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : "Failed to categorize item");
+      }
+    });
   };
 
   // Extract summary components from notes if available - more flexible regex for headings
@@ -213,6 +245,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              unoptimized={shouldBypassImageOptimization}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
@@ -251,9 +284,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           )}
         </div>
 
-        {item.tags.length > 0 && (
+        {displayTags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {item.tags.map((tag) => (
+            {displayTags.map((tag) => (
               <span key={tag} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
                 {tag}
               </span>
@@ -268,6 +301,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       <AnimatePresence>
         {aiPanelOpen && (
           <motion.div
+            key="ai-panel"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -289,6 +323,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
         {transcriptOpen && (
           <motion.div
+            key="transcript-panel"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -360,6 +395,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
         {notesOpen && (
           <motion.div
+            key="notes-panel"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -394,6 +430,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             >
               <Sparkles size={11} />
               {aiPanelOpen ? "Close" : "Ask AI"}
+            </motion.button>
+          )}
+
+          {item.transcriptUrl && !item.category && (
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={handleCategorizeClick}
+              disabled={isPending || !onCategorize}
+              className="flex items-center gap-1.5 rounded-full border border-amber-500/30 px-2.5 py-1 text-xs text-amber-300 transition-all hover:bg-amber-500/10 disabled:opacity-60"
+            >
+              <Sparkles size={11} />
+              Categorize
             </motion.button>
           )}
 

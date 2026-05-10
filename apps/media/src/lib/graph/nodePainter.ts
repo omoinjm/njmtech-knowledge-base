@@ -16,6 +16,10 @@ export const COSMIC_COLORS = {
 
 const TAG_ZOOM_THRESHOLD = 0.7;
 
+function canDrawImage(img: HTMLImageElement): boolean {
+  return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+}
+
 /**
  * Draws a media item node.
  */
@@ -65,7 +69,7 @@ export function drawMediaNode(
 
   if (item?.thumbnailUrl) {
     const img = imgCache.get(item.thumbnailUrl);
-    if (img && img.complete) {
+    if (img && canDrawImage(img)) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(0, 0, drawRadius - 4, 0, 2 * Math.PI);

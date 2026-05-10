@@ -4,10 +4,21 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound, Loader2, Lock } from "lucide-react";
 import { motion } from "framer-motion";
-import { setupPersonalAccessKey, unlockPersonalRoute } from "@/app/actions";
+import { setupPersonalAccessKey, unlockPersonalRoute } from "@/app/actions/auth";
 
 interface PersonalAccessGateProps {
   hasKeyConfigured: boolean;
+}
+
+function isMissingServerActionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("Failed to find Server Action") ||
+    error.message.includes("Server Action") && error.message.includes("was not found on the server")
+  );
 }
 
 export default function PersonalAccessGate({ hasKeyConfigured }: PersonalAccessGateProps) {
@@ -29,15 +40,24 @@ export default function PersonalAccessGate({ hasKeyConfigured }: PersonalAccessG
     }
 
     startTransition(async () => {
-      const result = isSetup ? await setupPersonalAccessKey(key) : await unlockPersonalRoute(key);
-      if (!result.success) {
-        setError(result.error ?? "Something went wrong");
-        return;
-      }
+      try {
+        const result = isSetup ? await setupPersonalAccessKey(key) : await unlockPersonalRoute(key);
+        if (!result.success) {
+          setError(result.error ?? "Something went wrong");
+          return;
+        }
 
-      setKey("");
-      setConfirmKey("");
-      router.refresh();
+        setKey("");
+        setConfirmKey("");
+        router.refresh();
+      } catch (error) {
+        if (isMissingServerActionError(error)) {
+          window.location.reload();
+          return;
+        }
+
+        setError(error instanceof Error ? error.message : "Something went wrong");
+      }
     });
   };
 

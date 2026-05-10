@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { FetchState } from "@/types/ui";
+import { getInlineMediaFileUrl } from "@/lib/media-file-url";
 
 /**
  * Hook to fetch and manage the state of markdown notes.
@@ -18,8 +19,14 @@ export function useNotes(notesUrl: string | null): FetchState<string> {
       return;
     }
 
+    const readableUrl = getInlineMediaFileUrl(notesUrl, "notes");
+    if (!readableUrl) {
+      setState({ status: "idle" });
+      return;
+    }
+
     setState({ status: "loading" });
-    fetch(notesUrl)
+    fetch(readableUrl)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch notes");
         return r.text();
