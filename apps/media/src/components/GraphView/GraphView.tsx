@@ -5,6 +5,7 @@ import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
 import { useGraphData } from "@/hooks/useGraphData";
 import { useTheme } from "next-themes";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Maximize2, Minimize2 } from "lucide-react";
 import MediaCard from "@/components/MediaCard";
 import { GraphTooltip } from "./GraphTooltip";
 import { NodePopup } from "./NodePopup";
@@ -55,6 +56,7 @@ export default function GraphView({
   onAnswerQuestion,
 }: GraphViewProps) {
   const { nodes: allNodes, links: allLinks } = useGraphData(items);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods>(null);
   const { theme } = useTheme();
 
@@ -66,6 +68,8 @@ export default function GraphView({
   const [highlightLinks, setHighlightLinks] = useState(new Set<GraphLink>());
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [showTagsByZoom, setShowTagsByZoom] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [graphSize, setGraphSize] = useState({ width: 0, height: 0 });
   
   const [tagsEnabled, setTagsEnabled] = useTagVisibility(true);
 
@@ -106,6 +110,82 @@ export default function GraphView({
       }
     });
   }, [allLinks]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const updateGraphSize = () => {
+      setGraphSize({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+    };
+
+    updateGraphSize();
+
+    const observer = new ResizeObserver(() => {
+      updateGraphSize();
+    });
+
+    observer.observe(container);
+    window.addEventListener("resize", updateGraphSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateGraphSize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (graphSize.width === 0 || graphSize.height === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      fgRef.current?.zoomToFit(400, isExpanded ? 120 : 80);
+    }, 180);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [graphSize, isExpanded]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsExpanded(document.fullscreenElement === containerRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsExpanded(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isExpanded]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+
+    if (isExpanded) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isExpanded]);
 
   const nodePaint = useCallback((node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const isHighlighted = highlightNodes.size === 0 || highlightNodes.has(node.id);
@@ -222,8 +302,48 @@ export default function GraphView({
     }
   };
 
+  const handleExpandToggle = useCallback(async () => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    if (document.fullscreenElement === container) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (isExpanded) {
+      setIsExpanded(false);
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+
+    if (typeof container.requestFullscreen === "function") {
+      try {
+        await container.requestFullscreen();
+        return;
+      } catch {
+        // Fall back to viewport-sized mode when fullscreen is unavailable.
+      }
+    }
+
+    setIsExpanded((prev) => !prev);
+  }, [isExpanded]);
+
   return (
-    <div className="relative h-[calc(100vh-250px)] w-full overflow-hidden rounded-xl border border-border bg-background" onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}>
+    <div
+      ref={containerRef}
+      className={`relative w-full overflow-hidden border border-border bg-background transition-all duration-300 ${
+        isExpanded
+          ? "fixed inset-0 z-[80] h-dvh w-screen rounded-none border-none shadow-none"
+          : "h-[calc(100vh-250px)] rounded-xl"
+      }`}
+      onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+    >
       {/* Interaction Guide */}
       <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
         <div className="rounded-lg border border-border bg-black/40 p-3 shadow-sm backdrop-blur-md pointer-events-auto">
@@ -285,8 +405,26 @@ export default function GraphView({
         </div>
       </div>
 
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2 pointer-events-none">
+        {isExpanded && (
+          <div className="rounded-full border border-emerald-500/20 bg-black/45 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-emerald-300/75 backdrop-blur-md pointer-events-auto">
+            Focus mode
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleExpandToggle}
+          className="flex items-center gap-2 rounded-full border border-emerald-500/25 bg-black/45 px-3 py-2 text-xs font-medium text-emerald-200/90 shadow-[0_0_24px_rgba(16,185,129,0.08)] backdrop-blur-md transition hover:border-emerald-400/45 hover:text-emerald-100 pointer-events-auto"
+        >
+          {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          <span>{isExpanded ? "Collapse graph" : "Expand graph"}</span>
+        </button>
+      </div>
+
       <ForceGraph2D
         ref={fgRef}
+        width={graphSize.width || undefined}
+        height={graphSize.height || undefined}
         graphData={{ nodes, links }}
         nodeCanvasObject={nodePaint}
         linkCanvasObject={linkPaint}
