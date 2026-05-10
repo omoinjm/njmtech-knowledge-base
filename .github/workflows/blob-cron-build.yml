@@ -28,6 +28,10 @@ jobs:
           pip install uv
           uv sync --dev
 
+      - name: Install test runner
+        run: |
+          uv run python -m pip install pytest
+
       - name: Validate Python sources
         run: |
           uv run python -m compileall src main.py
