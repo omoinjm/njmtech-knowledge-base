@@ -10,6 +10,10 @@ from njm_blob_cron.config import (
 )
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class BlobAPIStorage(BlobStorage):
     """
     Concrete implementation of the BlobStorage interface for the upload-blob API.
@@ -24,6 +28,7 @@ class BlobAPIStorage(BlobStorage):
         if not api_url:
             raise ValueError("UPLOAD_BLOB_API_URL is not set.")
 
+        logger.info(f"Using Blob API URL: {api_url}")
         self.base_url = api_url.rstrip("/")
         self.headers = {
             "Authorization": f"Bearer {api_token}"
@@ -33,15 +38,19 @@ class BlobAPIStorage(BlobStorage):
         """
         Lists all blobs using the /api/v1/blob/files endpoint.
         """
+        logger.info(f"Connecting to Blob API at: {self.base_url}")
         try:
-            async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            headers["User-Agent"] = "NJMTech-Blob-Cron/1.0"
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.get(
                     f"{self.base_url}/api/v1/blob/files",
-                    headers=self.headers
+                    headers=headers
                 )
                 
                 if response.status_code != 200:
-                    print(f"Error listing blobs (Status {response.status_code}): {response.text}")
+                    logger.error(f"Error listing blobs (Status {response.status_code}): {response.text}")
                     return []
                 
                 data = response.json()
@@ -59,7 +68,7 @@ class BlobAPIStorage(BlobStorage):
                 
                 return blobs
         except Exception as e:
-            print(f"Error listing blobs in folder '{folder}': {e}")
+            logger.error(f"Error listing blobs in folder '{folder}': {type(e).__name__}: {e}")
             return []
 
     async def download(self, pathname: str, url: str = None) -> bytes:

@@ -7,7 +7,8 @@ load_dotenv()
 load_secrets()
 
 def get_upload_blob_api_url():
-    return os.getenv("UPLOAD_BLOB_API_URL")
+    url = os.getenv("UPLOAD_BLOB_API_URL", "https://api.blob.njmtech.co.za")
+    return url
 
 
 def get_upload_blob_api_token():

@@ -122,6 +122,11 @@ func (s *retryState) clear(id string) {
 func retryDelay(errMsg string, failures int) time.Duration {
 	lower := strings.ToLower(errMsg)
 
+	if IsPermanentError(errMsg) {
+		// 10 years is effectively "forever" for this system's lifecycle.
+		return 10 * 365 * 24 * time.Hour
+	}
+
 	base := 15 * time.Minute
 	if strings.Contains(lower, "403") || strings.Contains(lower, "429") || strings.Contains(lower, "forbidden") || strings.Contains(lower, "too many requests") {
 		base = 6 * time.Hour
@@ -141,6 +146,31 @@ func retryDelay(errMsg string, failures int) time.Duration {
 		delay = 24 * time.Hour
 	}
 	return delay
+}
+
+// IsPermanentError returns true if the error message indicates a failure that
+// is unlikely to be resolved by retrying (e.g. video removed, restricted, or private).
+func IsPermanentError(errMsg string) bool {
+	lower := strings.ToLower(errMsg)
+	permanentPhrases := []string{
+		"video unavailable",
+		"is restricted",
+		"is private",
+		"has been removed",
+		"not available in your country",
+		"not available on this app",
+		"confirm your age",
+		"requires a subscription",
+		"account has been terminated",
+		"no longer available",
+	}
+
+	for _, phrase := range permanentPhrases {
+		if strings.Contains(lower, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 func min(a, b int) int {

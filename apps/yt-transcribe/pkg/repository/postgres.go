@@ -62,7 +62,7 @@ func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context, 
 		SELECT id, url, platform, video_id
 		FROM   media_items
 		WHERE  transcript_url IS NULL
-		AND    NOT (id = ANY($1::uuid[]))
+		AND    NOT (id::text = ANY($1::text[]))
 		ORDER  BY created_at ASC
 		FOR UPDATE SKIP LOCKED
 		LIMIT  1`
@@ -118,7 +118,7 @@ func (r *PostgresMediaItemRepository) FetchAll(ctx context.Context) ([]MediaItem
 
 // UpdateTranscriptURL sets transcript_url for the row identified by id.
 func (r *PostgresMediaItemRepository) UpdateTranscriptURL(ctx context.Context, id, transcriptURL string) error {
-	const query = `UPDATE media_items SET transcript_url = $1 WHERE id = $2::uuid`
+	const query = `UPDATE media_items SET transcript_url = $1 WHERE id::text = $2`
 
 	tag, err := r.pool.Exec(ctx, query, transcriptURL, id)
 	if err != nil {

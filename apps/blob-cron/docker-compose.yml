@@ -1,0 +1,7 @@
+services:
+  blob-cron:
+    build: .
+    env_file:
+      - .env
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'

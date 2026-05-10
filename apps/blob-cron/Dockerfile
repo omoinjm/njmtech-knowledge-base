@@ -16,7 +16,7 @@ COPY . /app/
 RUN chmod +x /app/entrypoint.sh /app/scripts/run_cron.sh
 
 # Install python dependencies
-ENV POETRY_HTTP_TIMEOUT=300
+ENV POETRY_HTTP_TIMEOUT=1000
 RUN poetry config virtualenvs.create false && poetry install --without dev --no-interaction --no-ansi
 
 ENV PYTHONUNBUFFERED=1

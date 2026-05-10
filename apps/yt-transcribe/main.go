@@ -255,8 +255,8 @@ func runFromCLI(ctx context.Context, svc src.TranscriptionService, videoURL, out
 	}
 }
 
-// runFromDB fetches the next unprocessed media_items row, transcribes it,
-// and writes the resulting transcript URL back to transcript_url.
+// runFromDB fetches and processes unprocessed media_items rows until no more
+// eligible items are found in the database.
 func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir string) {
 	cfg, err := bootstrap.LoadConfigFromEnv(ctx)
 	if err != nil {
@@ -275,65 +275,78 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 	defer repo.Close(ctx)
 
 	retryPath := retryStatePath()
-	state, err := loadRetryState(retryPath)
-	if err != nil {
-		log.Printf("Warning: failed to load retry state from %s: %v", retryPath, err)
-		state = &retryState{Items: map[string]retryEntry{}}
-	}
 
-	now := time.Now()
-	blockedIDs := state.blockedIDs(now)
-
-	item, err := repo.FetchNextUnprocessed(ctx, blockedIDs)
-	if err != nil {
-		handleFatalError("Failed to fetch next unprocessed item", err)
-	}
-	if item == nil {
-		if nextRetry, ok := state.earliestNextAttempt(now); ok {
-			msg := fmt.Sprintf("No eligible items are ready yet. Next retry after %s.", nextRetry.Format(time.RFC3339))
-			fmt.Println(msg)
-			reportJobStatus("idle", msg)
-		} else {
-			reportJobStatus("idle", "No unprocessed items found in the database. Nothing to do.")
-			fmt.Println("No unprocessed items found in the database. Nothing to do.")
+	for {
+		state, err := loadRetryState(retryPath)
+		if err != nil {
+			log.Printf("Warning: failed to load retry state from %s: %v", retryPath, err)
+			state = &retryState{Items: map[string]retryEntry{}}
 		}
-		return
-	}
 
-	fmt.Printf("Fetched item from DB — id: %s  platform: %s  url: %s\n", item.ID, item.Platform, item.URL)
-	fmt.Printf("Output directory: %s\n", outputDir)
+		now := time.Now()
+		blockedIDs := state.blockedIDs(now)
 
-	blobURL, err := svc.Execute(ctx, item.URL, outputDir)
-	if err != nil {
-		entry := state.recordFailure(item.ID, err, time.Now())
-		if saveErr := saveRetryState(retryPath, state); saveErr != nil {
-			log.Printf("Warning: failed to save retry state: %v", saveErr)
+		item, err := repo.FetchNextUnprocessed(ctx, blockedIDs)
+		if err != nil {
+			handleFatalError("Failed to fetch next unprocessed item", err)
 		}
-		msg := fmt.Sprintf("Transcription failed for id %s; retry scheduled for %s: %v", item.ID, entry.NextAttempt.Format(time.RFC3339), err)
-		log.Println(msg)
-		reportJobStatus("error", msg)
-		return
-	}
 
-	if err := repo.UpdateTranscriptURL(ctx, item.ID, blobURL); err != nil {
-		entry := state.recordFailure(item.ID, err, time.Now())
-		if saveErr := saveRetryState(retryPath, state); saveErr != nil {
-			log.Printf("Warning: failed to save retry state: %v", saveErr)
+		if item == nil {
+			if nextRetry, ok := state.earliestNextAttempt(now); ok {
+				msg := fmt.Sprintf("No more eligible items are ready yet. Next retry after %s.", nextRetry.Format(time.RFC3339))
+				fmt.Println(msg)
+				reportJobStatus("idle", msg)
+			} else {
+				reportJobStatus("idle", "No unprocessed items found in the database. Nothing to do.")
+				fmt.Println("No unprocessed items found in the database. Nothing to do.")
+			}
+			return
 		}
-		msg := fmt.Sprintf("Transcription succeeded but db update failed for id %s; retry scheduled for %s: %v", item.ID, entry.NextAttempt.Format(time.RFC3339), err)
-		log.Println(msg)
-		reportJobStatus("error", msg)
-		return
-	}
 
-	state.clear(item.ID)
-	if err := saveRetryState(retryPath, state); err != nil {
-		log.Printf("Warning: failed to clear retry state: %v", err)
-	}
+		fmt.Printf("\n--- Processing next item ---\n")
+		fmt.Printf("id: %s  platform: %s  url: %s\n", item.ID, item.Platform, item.URL)
 
-	msg := fmt.Sprintf("transcript_url updated in database for id %s → %s", item.ID, blobURL)
-	fmt.Println(msg)
-	reportJobStatus("success", msg)
+		blobURL, err := svc.Execute(ctx, item.URL, outputDir)
+		if err != nil {
+			entry := state.recordFailure(item.ID, err, time.Now())
+			if saveErr := saveRetryState(retryPath, state); saveErr != nil {
+				log.Printf("Warning: failed to save retry state: %v", saveErr)
+			}
+
+			isPermanent := IsPermanentError(err.Error())
+			if isPermanent {
+				msg := fmt.Sprintf("Transcription skipped for id %s (permanent error); item blocked indefinitely: %v", item.ID, err)
+				log.Println(msg)
+				reportJobStatus("idle", msg)
+			} else {
+				msg := fmt.Sprintf("Transcription failed for id %s; retry scheduled for %s: %v", item.ID, entry.NextAttempt.Format(time.RFC3339), err)
+				log.Println(msg)
+				reportJobStatus("error", msg)
+			}
+			// Continue to next item even if one fails
+			continue
+		}
+
+		if err := repo.UpdateTranscriptURL(ctx, item.ID, blobURL); err != nil {
+			entry := state.recordFailure(item.ID, err, time.Now())
+			if saveErr := saveRetryState(retryPath, state); saveErr != nil {
+				log.Printf("Warning: failed to save retry state: %v", saveErr)
+			}
+			msg := fmt.Sprintf("Transcription succeeded but db update failed for id %s; retry scheduled for %s: %v", item.ID, entry.NextAttempt.Format(time.RFC3339), err)
+			log.Println(msg)
+			reportJobStatus("error", msg)
+			continue
+		}
+
+		state.clear(item.ID)
+		if err := saveRetryState(retryPath, state); err != nil {
+			log.Printf("Warning: failed to clear retry state: %v", err)
+		}
+
+		msg := fmt.Sprintf("transcript_url updated in database for id %s → %s", item.ID, blobURL)
+		fmt.Println(msg)
+		reportJobStatus("success", msg)
+	}
 }
 
 // runReprocessAll fetches every record in media_items and re-transcribes each one,
