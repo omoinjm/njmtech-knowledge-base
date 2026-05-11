@@ -218,3 +218,31 @@ func (r *PostgresMediaItemRepository) EarliestRetryAfter(ctx context.Context) (s
 	}
 	return ts.UTC().Format(time.RFC3339), true, nil
 }
+
+func (r *PostgresMediaItemRepository) GetRetryState(ctx context.Context, id string) (*RetryStateInfo, error) {
+	const stmt = `
+		SELECT media_item_id::text, failures, next_attempt, last_error, updated_at
+		FROM media_item_retry_state
+		WHERE media_item_id::text = $1`
+	var (
+		info        RetryStateInfo
+		nextAttempt time.Time
+		updatedAt   time.Time
+	)
+	err := r.pool.QueryRow(ctx, stmt, id).Scan(
+		&info.MediaItemID,
+		&info.Failures,
+		&nextAttempt,
+		&info.LastError,
+		&updatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query retry-state row for id %s: %w", id, err)
+	}
+	info.NextAttempt = nextAttempt.UTC().Format(time.RFC3339)
+	info.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+	return &info, nil
+}

@@ -22,7 +22,9 @@
     "schemas": {
       "TranscribeRequest": {
         "type": "object",
-        "required": ["url"],
+        "required": [
+          "url"
+        ],
         "properties": {
           "url": {
             "type": "string",
@@ -46,7 +48,12 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["healthy", "running", "stopped", "unknown"]
+            "enum": [
+              "healthy",
+              "running",
+              "stopped",
+              "unknown"
+            ]
           },
           "lastChange": {
             "type": "integer",
@@ -57,17 +64,29 @@
       "AdminStateResponse": {
         "type": "object",
         "properties": {
-          "api": { "$ref": "#/components/schemas/ContainerState" },
-          "dbJob": { "$ref": "#/components/schemas/ContainerState" },
-          "reprocessAll": { "$ref": "#/components/schemas/ContainerState" }
+          "api": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "dbJob": {
+            "$ref": "#/components/schemas/ContainerState"
+          },
+          "reprocessAll": {
+            "$ref": "#/components/schemas/ContainerState"
+          }
         }
       },
       "JobStartedResponse": {
         "type": "object",
         "properties": {
-          "started": { "type": "boolean" },
-          "job": { "type": "string" },
-          "state": { "$ref": "#/components/schemas/ContainerState" }
+          "started": {
+            "type": "boolean"
+          },
+          "job": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ContainerState"
+          }
         }
       },
       "JobResultResponse": {
@@ -75,9 +94,16 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["success", "error", "idle", "no result yet"]
+            "enum": [
+              "success",
+              "error",
+              "idle",
+              "no result yet"
+            ]
           },
-          "message": { "type": "string" },
+          "message": {
+            "type": "string"
+          },
           "timestamp": {
             "type": "string",
             "format": "date-time"
@@ -88,26 +114,46 @@
         "type": "object",
         "description": "Boolean map of whether each required env var is set in the container.",
         "properties": {
-          "WHISPER_MODEL_PATH": { "type": "boolean" },
-          "UPLOAD_BLOB_API_URL": { "type": "boolean" },
-          "UPLOAD_BLOB_API_TOKEN": { "type": "boolean" },
-          "POSTGRES_URL": { "type": "boolean" },
-          "PORT": { "type": "boolean" },
-          "INFISICAL_ENABLED": { "type": "boolean" }
+          "WHISPER_MODEL_PATH": {
+            "type": "boolean"
+          },
+          "UPLOAD_BLOB_API_URL": {
+            "type": "boolean"
+          },
+          "UPLOAD_BLOB_API_TOKEN": {
+            "type": "boolean"
+          },
+          "POSTGRES_URL": {
+            "type": "boolean"
+          },
+          "PORT": {
+            "type": "boolean"
+          },
+          "INFISICAL_ENABLED": {
+            "type": "boolean"
+          }
         }
       },
       "TestDbResponse": {
         "type": "object",
         "properties": {
-          "ok": { "type": "boolean" },
-          "postgres_url_set": { "type": "boolean" },
-          "media_items_count": { "type": "integer" }
+          "ok": {
+            "type": "boolean"
+          },
+          "postgres_url_set": {
+            "type": "boolean"
+          },
+          "media_items_count": {
+            "type": "integer"
+          }
         }
       },
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "error": { "type": "string" }
+          "error": {
+            "type": "string"
+          }
         }
       }
     }
@@ -119,7 +165,9 @@
         "description": "Returns 200 OK when the API container is running.",
         "operationId": "healthCheck",
         "responses": {
-          "200": { "description": "API container is healthy." }
+          "200": {
+            "description": "API container is healthy."
+          }
         }
       }
     },
@@ -132,7 +180,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TranscribeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/TranscribeRequest"
+              }
             }
           }
         },
@@ -141,7 +191,9 @@
             "description": "Transcription successful.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TranscribeResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TranscribeResponse"
+                }
               }
             }
           },
@@ -149,7 +201,9 @@
             "description": "Bad request (missing or invalid URL).",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -157,7 +211,9 @@
             "description": "Transcription or upload failed.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -165,7 +221,9 @@
             "description": "Service initialisation failed (missing env vars or Infisical error).",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -177,17 +235,25 @@
         "summary": "Container state",
         "description": "Returns the current state of the API container and both job containers.",
         "operationId": "getAdminState",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Current container states.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminStateResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminStateResponse"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -196,17 +262,25 @@
         "summary": "Run DB transcription job",
         "description": "Starts a job container that fetches the next unprocessed `media_items` row, transcribes it, and updates `transcript_url`. Runs on a cron every 15 minutes; this endpoint triggers it on demand.",
         "operationId": "triggerDbJob",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "202": {
             "description": "Job started.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/JobStartedResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/JobStartedResponse"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -215,17 +289,25 @@
         "summary": "Reprocess all media items",
         "description": "Starts a job container that re-transcribes every row in `media_items`, overwriting existing `transcript_url` values. Individual failures are logged and skipped.",
         "operationId": "triggerReprocessAllJob",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "202": {
             "description": "Job started.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/JobStartedResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/JobStartedResponse"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -234,17 +316,25 @@
         "summary": "Last job result",
         "description": "Returns the status and message reported by the most recent job container run. Stored in Durable Object SQLite — survives Worker restarts.",
         "operationId": "getJobResult",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Last job result, or `{\"status\": \"no result yet\"}` if no job has run since deploy.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/JobResultResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/JobResultResponse"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -253,17 +343,25 @@
         "summary": "Check container env vars",
         "description": "Starts the API container and returns a boolean map of whether each required environment variable is set.",
         "operationId": "testEnv",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Env var presence map.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TestEnvResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TestEnvResponse"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -272,17 +370,25 @@
         "summary": "Test database connectivity",
         "description": "Starts the API container, connects to Postgres, and returns the row count of `media_items`.",
         "operationId": "testDb",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "DB connectivity result.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TestDbResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TestDbResponse"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -291,13 +397,25 @@
         "summary": "Job container raw logs",
         "description": "Returns the full stdout/stderr buffer from the job (db) container since its last start. Useful for seeing raw Go binary output that is not captured by wrangler tail.",
         "operationId": "getJobLogs",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Raw container log output as plain text.",
-            "content": { "text/plain": { "schema": { "type": "string" } } }
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     },
@@ -306,13 +424,73 @@
         "summary": "API container raw logs",
         "description": "Returns the full stdout/stderr buffer from the API container since its last start.",
         "operationId": "getApiLogs",
-        "security": [{ "adminBearer": [] }],
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Raw container log output as plain text.",
-            "content": { "text/plain": { "schema": { "type": "string" } } }
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "401": { "description": "Unauthorized." }
+          "401": {
+            "description": "Unauthorized."
+          }
+        }
+      }
+    },
+    "/admin/retry-state": {
+      "get": {
+        "summary": "Get retry state for item",
+        "description": "Starts the API container and returns retry metadata from Postgres for a specific media item id.",
+        "operationId": "getRetryState",
+        "security": [
+          {
+            "adminBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "media_items.id UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retry state payload (or found=false when no row exists).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing id query param.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized."
+          }
         }
       }
     }

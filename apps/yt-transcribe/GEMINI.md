@@ -83,20 +83,25 @@ npm run serve
 
 ### Key Conventions
 - **Error Handling:** Use `handleFatalError` in `main.go` for CLI-level errors. For job-level errors in `-db` mode, the system distinguishes between transient and permanent errors:
+- **Error Handling:** Use `handleFatalError` in `main.go` for CLI-level errors. For job-level errors in `-db` mode, the system distinguishes between transient, auth-cookie, and permanent errors:
     - **Transient Errors:** (e.g., timeouts, 429s) trigger exponential backoff.
+    - **Auth-cookie Errors:** (e.g., `Sign in to confirm you're not a bot`) are treated as long-backoff (24h) and should be remediated by refreshing `YT_DLP` cookies.
     - **Permanent Errors:** (e.g., restricted, private, or removed videos) are blocked indefinitely (10-year delay) and reported as `idle` to the job callback to avoid false positive alerts.
-    - Classification is handled by `IsPermanentError` in `retry_state.go`.
+    - Classification/backoff logic is handled in `pkg/repository/retry_policy.go`.
 - **Configuration:** Always load configuration via `bootstrap.LoadConfigFromEnv`. It handles both environment variables and Infisical fetching.
-- **State Management:** DB jobs use a "retry state" (see `retry_state.go`) to manage exponential backoff for failed transcriptions.
+- **State Management:** DB jobs persist retry state in Postgres table `media_item_retry_state` to survive container restarts/placement changes.
 - **Shell Commands:** The project heavily relies on executing external binaries (`yt-dlp`, `ffmpeg`, `whisper-cli`). Ensure these are available in the PATH (handled by Docker and VPS setup script).
 
 ## Environment Variables
 Key variables required in `.env`:
 - `WHISPER_MODEL_PATH`: Path to the GGML model file.
+- `WHISPER_THREADS`: Thread count for `whisper-cli` (`-t`), defaults to `1`.
+- `WHISPER_EXTRA_ARGS`: Optional extra flags appended to `whisper-cli`.
 - `UPLOAD_BLOB_API_URL`: Destination for SRT uploads.
 - `UPLOAD_BLOB_API_TOKEN`: Auth for the blob API.
 - `POSTGRES_URL`: Connection string for job management.
 - `YT_TRANSCRIBE_ADMIN_TOKEN`: Auth for admin API routes.
+- `DISCORD_WEBHOOK_URL`: Optional Discord webhook for automatic job error notifications.
 
 ## Development Workflow
 1. **Modify Logic:** Focus changes in `pkg/` for infrastructure or `src/` for orchestration.

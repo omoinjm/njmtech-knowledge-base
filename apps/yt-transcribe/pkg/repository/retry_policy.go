@@ -12,6 +12,12 @@ func retryDelay(errMsg string, failures int) time.Duration {
 		return 10 * 365 * 24 * time.Hour
 	}
 
+	// YouTube anti-bot/auth-cookie failures should back off aggressively to
+	// avoid repeated hammering until credentials/session are refreshed.
+	if IsAuthCookieRequiredError(errMsg) {
+		return 24 * time.Hour
+	}
+
 	base := 15 * time.Minute
 	if strings.Contains(lower, "403") || strings.Contains(lower, "429") || strings.Contains(lower, "forbidden") || strings.Contains(lower, "too many requests") {
 		base = 6 * time.Hour
@@ -49,6 +55,25 @@ func IsPermanentError(errMsg string) bool {
 	}
 
 	for _, phrase := range permanentPhrases {
+		if strings.Contains(lower, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAuthCookieRequiredError returns true for failures that indicate the request
+// requires authenticated cookies (or refreshed cookies) to proceed.
+func IsAuthCookieRequiredError(errMsg string) bool {
+	lower := strings.ToLower(errMsg)
+	authPhrases := []string{
+		"sign in to confirm you",
+		"use --cookies-from-browser or --cookies",
+		"this content isn't available, try again later",
+		"please sign in",
+		"login required",
+	}
+	for _, phrase := range authPhrases {
 		if strings.Contains(lower, phrase) {
 			return true
 		}

@@ -11,6 +11,14 @@ type MediaItem struct {
 	VideoID  string
 }
 
+type RetryStateInfo struct {
+	MediaItemID string `json:"media_item_id"`
+	Failures    int    `json:"failures"`
+	NextAttempt string `json:"next_attempt"`
+	LastError   string `json:"last_error"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
 // MediaItemRepository defines the database operations needed by the transcription pipeline.
 type MediaItemRepository interface {
 	// FetchNextUnprocessed returns the oldest media_items row whose transcript_url is NULL.
@@ -34,4 +42,8 @@ type MediaItemRepository interface {
 	// EarliestRetryAfter returns the earliest future retry timestamp, RFC3339 formatted.
 	// When no blocked retries exist, the second return value is false.
 	EarliestRetryAfter(ctx context.Context) (string, bool, error)
+
+	// GetRetryState returns retry metadata for a specific media item ID.
+	// Returns nil, nil when no retry row exists.
+	GetRetryState(ctx context.Context, id string) (*RetryStateInfo, error)
 }

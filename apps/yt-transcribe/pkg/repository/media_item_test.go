@@ -44,6 +44,10 @@ func (m *mockRepo) EarliestRetryAfter(_ context.Context) (string, bool, error) {
 	return "", false, nil
 }
 
+func (m *mockRepo) GetRetryState(_ context.Context, _ string) (*RetryStateInfo, error) {
+	return nil, nil
+}
+
 // Verify mockRepo satisfies the interface at compile time.
 var _ MediaItemRepository = (*mockRepo)(nil)
 

@@ -30,6 +30,7 @@ cp .env.example .env
 | `UPLOAD_BLOB_API_TOKEN` | ✅ | Auth token for the upload-blob API |
 | `PORT` | Cloudflare container / local API only | Port for HTTP server mode |
 | `POSTGRES_URL` | `-db` / `-reprocess-all` only | Neon / Postgres connection string |
+| `DISCORD_WEBHOOK_URL` | Optional | Discord webhook URL for job failure alerts (`status=error`) |
 | `DOCKERHUB_USERNAME` | Docker Compose only | Your Docker Hub username (resolves the image name) |
 
 ---
@@ -131,6 +132,7 @@ This app is now wired for **Cloudflare Workers + Containers**:
 - `POST /admin/jobs/reprocess-all` starts a manual `-reprocess-all` batch run.
 - `GET /admin/state` returns the current state of the API and batch container instances.
 - `GET /admin/job-result` returns the last status callback reported by the job container.
+- `GET /admin/retry-state?id=<media_item_id>` returns retry metadata (`failures`, `next_attempt`, `last_error`) for a specific item.
 - `GET /admin/logs/job` returns the job container's stdout/stderr buffer from its last start.
 
 Admin routes require:
@@ -140,6 +142,10 @@ Admin routes require:
 Cloudflare's **Events** view mostly shows Worker lifecycle logs. Detailed batch execution logs come from the container runtime, so use `/admin/job-result` for the latest success/error/idle summary and `/admin/logs/job` for the full container output when a cron run looks quiet.
 
 `-db` retry/backoff state is persisted in Postgres table `media_item_retry_state` (auto-created on startup), so retries are no longer reset by container restarts or placement changes.
+
+YouTube auth/cookie failures (for example, `Sign in to confirm you're not a bot`) are automatically classified as long-backoff errors (24h) and surfaced with a clear remediation message in `/admin/job-result`.
+
+If `DISCORD_WEBHOOK_URL` is set, every job callback with `status=error` sends the full error message to Discord.
 
 Example manual reprocess:
 

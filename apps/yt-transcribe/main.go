@@ -208,6 +208,47 @@ func runServer(port string) {
 		_ = json.NewEncoder(w).Encode(result)
 	})
 
+	mux.HandleFunc("/debug/retry-state", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		mediaItemID := r.URL.Query().Get("id")
+		if mediaItemID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "missing required query param: id"})
+			return
+		}
+		postgresURL := os.Getenv("POSTGRES_URL")
+		if postgresURL == "" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "POSTGRES_URL not set"})
+			return
+		}
+		ctx := r.Context()
+		repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("connect failed: %v", err)})
+			return
+		}
+		defer repo.Close(ctx)
+		state, err := repo.GetRetryState(ctx, mediaItemID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("query failed: %v", err)})
+			return
+		}
+		if state == nil {
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"found":         false,
+				"media_item_id": mediaItemID,
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"found": true,
+			"state": state,
+		})
+	})
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -307,6 +348,10 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 				msg := fmt.Sprintf("Transcription skipped for id %s (permanent error); item blocked indefinitely: %v", item.ID, err)
 				log.Println(msg)
 				reportJobStatus("idle", msg)
+			} else if repository.IsAuthCookieRequiredError(err.Error()) {
+				msg := fmt.Sprintf("Transcription failed for id %s; YouTube auth/cookies required or expired. Refresh YT_DLP cookies. Next retry at %s: %v", item.ID, nextRetry, err)
+				log.Println(msg)
+				reportJobStatus("error", msg)
 			} else {
 				msg := fmt.Sprintf("Transcription failed for id %s; retry scheduled for %s: %v", item.ID, nextRetry, err)
 				log.Println(msg)
