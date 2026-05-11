@@ -24,4 +24,14 @@ type MediaItemRepository interface {
 
 	// UpdateTranscriptURL writes the transcript URL back to transcript_url for the given row id.
 	UpdateTranscriptURL(ctx context.Context, id, transcriptURL string) error
+
+	// RecordRetryFailure stores failure metadata and the next attempt time for an item.
+	RecordRetryFailure(ctx context.Context, id, errMsg string) (nextAttempt string, isPermanent bool, err error)
+
+	// ClearRetryFailure removes any retry metadata for an item after successful processing.
+	ClearRetryFailure(ctx context.Context, id string) error
+
+	// EarliestRetryAfter returns the earliest future retry timestamp, RFC3339 formatted.
+	// When no blocked retries exist, the second return value is false.
+	EarliestRetryAfter(ctx context.Context) (string, bool, error)
 }

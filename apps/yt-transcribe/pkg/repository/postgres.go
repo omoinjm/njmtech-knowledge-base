@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,7 +41,12 @@ func NewPostgresMediaItemRepository(ctx context.Context, connString string) (*Po
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
-	return &PostgresMediaItemRepository{pool: pool}, nil
+	repo := &PostgresMediaItemRepository{pool: pool}
+	if err := repo.ensureRetryTable(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return repo, nil
 }
 
 // Close releases all connections in the pool.
@@ -61,7 +67,9 @@ func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context, 
 	const query = `
 		SELECT id, url, platform, video_id
 		FROM   media_items
+		LEFT JOIN media_item_retry_state rs ON rs.media_item_id = media_items.id
 		WHERE  transcript_url IS NULL
+		AND    (rs.next_attempt IS NULL OR rs.next_attempt <= NOW())
 		AND    NOT (id::text = ANY($1::text[]))
 		ORDER  BY created_at ASC
 		FOR UPDATE SKIP LOCKED
@@ -87,6 +95,21 @@ func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context, 
 		return nil, fmt.Errorf("failed to commit transaction for next unprocessed item: %w", err)
 	}
 	return &item, nil
+}
+
+func (r *PostgresMediaItemRepository) ensureRetryTable(ctx context.Context) error {
+	const stmt = `
+		CREATE TABLE IF NOT EXISTS media_item_retry_state (
+			media_item_id UUID PRIMARY KEY,
+			failures INTEGER NOT NULL DEFAULT 0,
+			next_attempt TIMESTAMPTZ NOT NULL,
+			last_error TEXT NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`
+	if _, err := r.pool.Exec(ctx, stmt); err != nil {
+		return fmt.Errorf("failed to ensure media_item_retry_state table: %w", err)
+	}
+	return nil
 }
 
 // FetchAll returns every row in media_items ordered by created_at ASC.
@@ -128,4 +151,66 @@ func (r *PostgresMediaItemRepository) UpdateTranscriptURL(ctx context.Context, i
 		return fmt.Errorf("no row found with id %s", id)
 	}
 	return nil
+}
+
+func (r *PostgresMediaItemRepository) RecordRetryFailure(ctx context.Context, id, errMsg string) (string, bool, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return "", false, fmt.Errorf("failed to begin retry-state transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var failures int
+	const selectStmt = `SELECT failures FROM media_item_retry_state WHERE media_item_id::text = $1`
+	selectErr := tx.QueryRow(ctx, selectStmt, id).Scan(&failures)
+	if selectErr != nil && !errors.Is(selectErr, pgx.ErrNoRows) {
+		return "", false, fmt.Errorf("failed to read retry-state row for id %s: %w", id, selectErr)
+	}
+	if errors.Is(selectErr, pgx.ErrNoRows) {
+		failures = 0
+	}
+	failures++
+
+	isPermanent := IsPermanentError(errMsg)
+	nextDelay := retryDelay(errMsg, failures)
+	nextAttempt := time.Now().Add(nextDelay).UTC()
+
+	const upsertStmt = `
+		INSERT INTO media_item_retry_state (media_item_id, failures, next_attempt, last_error, updated_at)
+		VALUES ($1::uuid, $2, $3, $4, NOW())
+		ON CONFLICT (media_item_id)
+		DO UPDATE SET
+			failures = EXCLUDED.failures,
+			next_attempt = EXCLUDED.next_attempt,
+			last_error = EXCLUDED.last_error,
+			updated_at = NOW()`
+	if _, err := tx.Exec(ctx, upsertStmt, id, failures, nextAttempt, errMsg); err != nil {
+		return "", false, fmt.Errorf("failed to upsert retry-state row for id %s: %w", id, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", false, fmt.Errorf("failed to commit retry-state transaction for id %s: %w", id, err)
+	}
+
+	return nextAttempt.Format(time.RFC3339), isPermanent, nil
+}
+
+func (r *PostgresMediaItemRepository) ClearRetryFailure(ctx context.Context, id string) error {
+	const stmt = `DELETE FROM media_item_retry_state WHERE media_item_id::text = $1`
+	if _, err := r.pool.Exec(ctx, stmt, id); err != nil {
+		return fmt.Errorf("failed to clear retry-state row for id %s: %w", id, err)
+	}
+	return nil
+}
+
+func (r *PostgresMediaItemRepository) EarliestRetryAfter(ctx context.Context) (string, bool, error) {
+	const stmt = `SELECT MIN(next_attempt) FROM media_item_retry_state WHERE next_attempt > NOW()`
+	var ts *time.Time
+	if err := r.pool.QueryRow(ctx, stmt).Scan(&ts); err != nil {
+		return "", false, fmt.Errorf("failed to query earliest retry attempt: %w", err)
+	}
+	if ts == nil {
+		return "", false, nil
+	}
+	return ts.UTC().Format(time.RFC3339), true, nil
 }

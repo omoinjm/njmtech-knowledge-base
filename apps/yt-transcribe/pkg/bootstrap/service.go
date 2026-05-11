@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -21,6 +22,8 @@ var loadDotEnvOnce sync.Once
 // Config holds application configuration loaded from environment or Infisical.
 type Config struct {
 	WhisperModelPath        string
+	WhisperThreads          int
+	WhisperExtraArgs        string
 	UploadBlobAPIURL        string
 	UploadBlobAPIToken      string
 	PostgresURL             string
@@ -60,6 +63,16 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 		return nil, fmt.Errorf("WHISPER_MODEL_PATH not set")
 	}
 	logSecretLoaded("WHISPER_MODEL_PATH")
+
+	whisperThreads := 1
+	if rawThreads := os.Getenv("WHISPER_THREADS"); rawThreads != "" {
+		parsed, parseErr := strconv.Atoi(rawThreads)
+		if parseErr != nil || parsed <= 0 {
+			return nil, fmt.Errorf("WHISPER_THREADS must be a positive integer")
+		}
+		whisperThreads = parsed
+	}
+	whisperExtraArgs := os.Getenv("WHISPER_EXTRA_ARGS")
 
 	uploadBlobAPIURL, err := secrets.GetSecret(
 		ctx,
@@ -118,6 +131,8 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 
 	return &Config{
 		WhisperModelPath:        whisperModelPath,
+		WhisperThreads:          whisperThreads,
+		WhisperExtraArgs:        whisperExtraArgs,
 		UploadBlobAPIURL:        uploadBlobAPIURL,
 		UploadBlobAPIToken:      uploadBlobAPIToken,
 		PostgresURL:             postgresURL,
@@ -139,7 +154,11 @@ func NewTranscriptionServiceFromEnv() (src.TranscriptionService, error) {
 	}
 
 	videoDownloader := downloader.NewYTDLPAudioDownloader(cfg.YTDLPCookiesFile, cfg.YTDLPCookiesFromBrowser)
-	audioTranscriber := transcriber.NewWhisperCPPTranscriber(cfg.WhisperModelPath)
+	audioTranscriber := transcriber.NewWhisperCPPTranscriber(
+		cfg.WhisperModelPath,
+		cfg.WhisperThreads,
+		transcriber.ParseWhisperExtraArgs(cfg.WhisperExtraArgs),
+	)
 	blobUploader := uploader.NewBlobAPIUploader(
 		cfg.UploadBlobAPIURL,
 		cfg.UploadBlobAPIToken,

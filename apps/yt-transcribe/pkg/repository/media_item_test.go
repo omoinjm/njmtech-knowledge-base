@@ -32,6 +32,18 @@ func (m *mockRepo) UpdateTranscriptURL(_ context.Context, id, transcriptURL stri
 	return m.updateErr
 }
 
+func (m *mockRepo) RecordRetryFailure(_ context.Context, _ string, _ string) (string, bool, error) {
+	return "", false, nil
+}
+
+func (m *mockRepo) ClearRetryFailure(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockRepo) EarliestRetryAfter(_ context.Context) (string, bool, error) {
+	return "", false, nil
+}
+
 // Verify mockRepo satisfies the interface at compile time.
 var _ MediaItemRepository = (*mockRepo)(nil)
 

@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -16,12 +18,19 @@ var (
 // WhisperCPPTranscriber implements the Transcriber interface using whisper.cpp.
 type WhisperCPPTranscriber struct {
 	ModelPath string
+	Threads   int
+	ExtraArgs []string
 }
 
 // NewWhisperCPPTranscriber creates a new WhisperCPPTranscriber.
-func NewWhisperCPPTranscriber(modelPath string) *WhisperCPPTranscriber {
+func NewWhisperCPPTranscriber(modelPath string, threads int, extraArgs []string) *WhisperCPPTranscriber {
+	if threads <= 0 {
+		threads = 1
+	}
 	return &WhisperCPPTranscriber{
 		ModelPath: modelPath,
+		Threads:   threads,
+		ExtraArgs: extraArgs,
 	}
 }
 
@@ -49,7 +58,9 @@ func (t *WhisperCPPTranscriber) Transcribe(ctx context.Context, audioFilePath st
 		"--output-srt",
 		"--output-file", outputPrefix,
 		"--no-prints",
+		"-t", strconv.Itoa(t.Threads),
 	}
+	cmdArgs = append(cmdArgs, t.ExtraArgs...)
 
 	cmd := execCommand(ctx, "whisper-cli", cmdArgs...)
 
@@ -66,4 +77,13 @@ func (t *WhisperCPPTranscriber) Transcribe(ctx context.Context, audioFilePath st
 	}
 
 	return string(transcriptBytes), nil
+}
+
+// ParseWhisperExtraArgs splits a shell-style arg string into whitespace-delimited args.
+// It intentionally keeps parsing simple for env var use (no quote handling).
+func ParseWhisperExtraArgs(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	return strings.Fields(raw)
 }

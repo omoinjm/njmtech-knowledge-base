@@ -24,6 +24,8 @@ cp .env.example .env
 | Variable | Required | Description |
 |---|---|---|
 | `WHISPER_MODEL_PATH` | ✅ | Path to the `ggml-*.bin` model file |
+| `WHISPER_THREADS` | Optional (default: `1`) | Thread count passed to `whisper-cli` (`-t`) |
+| `WHISPER_EXTRA_ARGS` | Optional | Extra args appended to `whisper-cli` (space-delimited) |
 | `UPLOAD_BLOB_API_URL` | ✅ | Upload endpoint for the upload-blob API |
 | `UPLOAD_BLOB_API_TOKEN` | ✅ | Auth token for the upload-blob API |
 | `PORT` | Cloudflare container / local API only | Port for HTTP server mode |
@@ -128,10 +130,16 @@ This app is now wired for **Cloudflare Workers + Containers**:
 - `POST /admin/jobs/db` starts a manual `-db` batch run.
 - `POST /admin/jobs/reprocess-all` starts a manual `-reprocess-all` batch run.
 - `GET /admin/state` returns the current state of the API and batch container instances.
+- `GET /admin/job-result` returns the last status callback reported by the job container.
+- `GET /admin/logs/job` returns the job container's stdout/stderr buffer from its last start.
 
 Admin routes require:
 
 - `YT_TRANSCRIBE_ADMIN_TOKEN`
+
+Cloudflare's **Events** view mostly shows Worker lifecycle logs. Detailed batch execution logs come from the container runtime, so use `/admin/job-result` for the latest success/error/idle summary and `/admin/logs/job` for the full container output when a cron run looks quiet.
+
+`-db` retry/backoff state is persisted in Postgres table `media_item_retry_state` (auto-created on startup), so retries are no longer reset by container restarts or placement changes.
 
 Example manual reprocess:
 

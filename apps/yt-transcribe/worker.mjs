@@ -14,6 +14,8 @@ function compactEnvVars(values) {
 function buildYTTranscribeEnv(env, extra = {}) {
   return compactEnvVars({
     WHISPER_MODEL_PATH: env.WHISPER_MODEL_PATH,
+    WHISPER_THREADS: env.WHISPER_THREADS,
+    WHISPER_EXTRA_ARGS: env.WHISPER_EXTRA_ARGS,
     UPLOAD_BLOB_API_URL: env.UPLOAD_BLOB_API_URL,
     UPLOAD_BLOB_API_TOKEN: env.UPLOAD_BLOB_API_TOKEN,
     POSTGRES_URL: env.POSTGRES_URL,
@@ -65,6 +67,17 @@ function getJobContainer(env, instanceName) {
   return getContainer(env.YT_TRANSCRIBE_JOB_CONTAINER, instanceName);
 }
 
+function logJobResult(bodyText) {
+  try {
+    const payload = JSON.parse(bodyText);
+    const status = payload?.status ?? "unknown";
+    const message = payload?.message ?? "";
+    console.log(`yt-transcribe job result [${status}]${message ? ` ${message}` : ""}`);
+  } catch {
+    console.log(`yt-transcribe job result ${bodyText}`);
+  }
+}
+
 async function startAPIContainer(env) {
   const container = getAPIContainer(env);
   await container.startAndWaitForPorts({
@@ -77,6 +90,7 @@ async function startAPIContainer(env) {
 
 async function startJobContainer(env, instanceName, args) {
   const container = getJobContainer(env, instanceName);
+  console.log(`Starting yt-transcribe job container "${instanceName}" with args: ${args.join(" ")}`);
   await container.start({
     entrypoint: ["/usr/local/bin/entrypoint.sh", ...args],
     envVars: buildYTTranscribeEnv(env),
@@ -174,6 +188,7 @@ export default {
         return unauthorized;
       }
       const body = await request.text();
+      logJobResult(body);
       return getJobContainer(env, DB_JOB_INSTANCE_NAME).fetch(
         new Request("http://do/result", { method: "POST", body, headers: { "content-type": "application/json" } }),
       );
@@ -260,8 +275,21 @@ export default {
       if (unauthorized) {
         return unauthorized;
       }
-      const logs = await getJobContainer(env, DB_JOB_INSTANCE_NAME).getLogs();
-      return new Response(logs ?? "(no logs)", { headers: { "content-type": "text/plain; charset=utf-8" } });
+      const container = getJobContainer(env, DB_JOB_INSTANCE_NAME);
+      try {
+        const logs = await container.getLogs();
+        return new Response(logs ?? "(no logs)", { headers: { "content-type": "text/plain; charset=utf-8" } });
+      } catch (error) {
+        const state = await safeState(container);
+        return Response.json(
+          {
+            error: "Failed to read job container logs",
+            details: error instanceof Error ? error.message : String(error),
+            state,
+          },
+          { status: 503 },
+        );
+      }
     }
 
     // Returns raw stdout/stderr from the API container.
@@ -270,8 +298,21 @@ export default {
       if (unauthorized) {
         return unauthorized;
       }
-      const logs = await getAPIContainer(env).getLogs();
-      return new Response(logs ?? "(no logs)", { headers: { "content-type": "text/plain; charset=utf-8" } });
+      const container = getAPIContainer(env);
+      try {
+        const logs = await container.getLogs();
+        return new Response(logs ?? "(no logs)", { headers: { "content-type": "text/plain; charset=utf-8" } });
+      } catch (error) {
+        const state = await safeState(container);
+        return Response.json(
+          {
+            error: "Failed to read API container logs",
+            details: error instanceof Error ? error.message : String(error),
+            state,
+          },
+          { status: 503 },
+        );
+      }
     }
 
     const container = await startAPIContainer(env);
@@ -279,6 +320,7 @@ export default {
   },
 
   async scheduled(_controller, env) {
+    console.log("Cron trigger received for yt-transcribe DB job");
     await startJobContainer(env, DB_JOB_INSTANCE_NAME, ["-db"]);
   },
 };

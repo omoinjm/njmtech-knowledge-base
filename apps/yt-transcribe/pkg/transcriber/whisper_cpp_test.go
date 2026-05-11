@@ -12,12 +12,15 @@ import (
 // TestNewWhisperCPPTranscriber ensures the constructor works correctly.
 func TestNewWhisperCPPTranscriber(t *testing.T) {
 	modelPath := "/path/to/model"
-	transcriber := NewWhisperCPPTranscriber(modelPath)
+	transcriber := NewWhisperCPPTranscriber(modelPath, 2, []string{"--translate"})
 	if transcriber == nil {
 		t.Errorf("NewWhisperCPPTranscriber returned nil")
 	}
 	if transcriber.ModelPath != modelPath {
 		t.Errorf("Expected ModelPath to be '%s', but got '%s'", modelPath, transcriber.ModelPath)
+	}
+	if transcriber.Threads != 2 {
+		t.Errorf("Expected Threads to be 2, but got %d", transcriber.Threads)
 	}
 }
 
@@ -36,7 +39,7 @@ func TestTranscribe_WhisperCLINotFound(t *testing.T) {
 		return oldLookPath(file)
 	}
 
-	transcriber := NewWhisperCPPTranscriber("/path/to/model")
+	transcriber := NewWhisperCPPTranscriber("/path/to/model", 1, nil)
 	_, err := transcriber.Transcribe(context.Background(), "/path/to/audio.wav")
 
 	if err == nil {
@@ -66,7 +69,7 @@ func TestTranscribe_Success(t *testing.T) {
 		return cmd
 	}
 
-	transcriber := NewWhisperCPPTranscriber("/path/to/model")
+	transcriber := NewWhisperCPPTranscriber("/path/to/model", 1, nil)
 	transcript, err := transcriber.Transcribe(context.Background(), "/path/to/audio.wav")
 
 	if err != nil {
@@ -131,7 +134,7 @@ func TestTranscribe_CommandFailed(t *testing.T) {
 		return cmd
 	}
 
-	transcriber := NewWhisperCPPTranscriber("/path/to/model")
+	transcriber := NewWhisperCPPTranscriber("/path/to/model", 1, nil)
 	_, err := transcriber.Transcribe(context.Background(), "/path/to/audio.wav")
 
 	if err == nil {
