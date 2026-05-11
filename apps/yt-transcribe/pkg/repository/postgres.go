@@ -67,9 +67,13 @@ func (r *PostgresMediaItemRepository) FetchNextUnprocessed(ctx context.Context, 
 	const query = `
 		SELECT id, url, platform, video_id
 		FROM   media_items
-		LEFT JOIN media_item_retry_state rs ON rs.media_item_id = media_items.id
 		WHERE  transcript_url IS NULL
-		AND    (rs.next_attempt IS NULL OR rs.next_attempt <= NOW())
+		AND    NOT EXISTS (
+			SELECT 1
+			FROM media_item_retry_state rs
+			WHERE rs.media_item_id = media_items.id
+			AND rs.next_attempt > NOW()
+		)
 		AND    NOT (id::text = ANY($1::text[]))
 		ORDER  BY created_at ASC
 		FOR UPDATE SKIP LOCKED
