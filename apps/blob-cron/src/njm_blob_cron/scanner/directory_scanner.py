@@ -15,7 +15,7 @@ class DirectoryScanner:
     This class encapsulates the core business logic of the application.
     """
 
-    def __init__(self, blob_storage: BlobStorage, file_processor: FileProcessor):
+    def __init__(self, blob_storage: BlobStorage, file_processor: FileProcessor, reprocess_all: bool = False):
         """
         Initializes the DirectoryScanner.
 
@@ -25,6 +25,7 @@ class DirectoryScanner:
         """
         self.blob_storage = blob_storage
         self.file_processor = file_processor
+        self.reprocess_all = reprocess_all
 
     async def scan_and_process(self):
         """
@@ -62,7 +63,7 @@ class DirectoryScanner:
         txt_url = dir_record.get('txt_url')
         md_url = dir_record.get('md_url')
 
-        if md_url:
+        if md_url and not self.reprocess_all:
             print(f"  [SKIP] Directory already contains a processed file (.md).")
             return None
 
@@ -76,7 +77,8 @@ class DirectoryScanner:
             # We'll use the directory path + derived filename for the source pathname
             source_pathname = f"{directory}/{filename}"
             
-            print(f"  [QUALIFIES] Found transcript file: {source_pathname}")
+            mode = "REPROCESS" if self.reprocess_all else "QUALIFIES"
+            print(f"  [{mode}] Found transcript file: {source_pathname}")
             return {
                 'pathname': source_pathname,
                 'url': txt_url
@@ -100,15 +102,21 @@ class DirectoryScanner:
 
             if notes_url:
                 print(f"  [DB_UPDATE] Updating database for: {pathname}")
-                query = """
-                    UPDATE media_items 
-                    SET notes_url = $1 
-                    WHERE transcript_url = $2 AND notes_url IS NULL;
-                """
+                if self.reprocess_all:
+                    query = """
+                        UPDATE media_items
+                        SET notes_url = $1
+                        WHERE transcript_url = $2;
+                    """
+                else:
+                    query = """
+                        UPDATE media_items
+                        SET notes_url = $1
+                        WHERE transcript_url = $2 AND notes_url IS NULL;
+                    """
                 await db_pool.execute(query, notes_url, url)
                 print(f"  [SUCCESS] Database updated with notes_url: {notes_url}")
 
         except Exception as e:
             print(f"  [ERROR] Failed to process file {pathname}: {e}")
-
 

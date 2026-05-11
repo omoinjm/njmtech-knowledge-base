@@ -2,6 +2,7 @@ const OPENAPI_SPEC = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"blob-cron Wor
 import { Container, getContainer } from "@cloudflare/containers";
 
 const INSTANCE_NAME = "blob-cron";
+const REPROCESS_INSTANCE_NAME = "blob-cron-reprocess-all";
 
 function compactEnvVars(values) {
   return Object.fromEntries(
@@ -45,9 +46,15 @@ function getBlobCronContainer(env) {
   return getContainer(env.BLOB_CRON_CONTAINER, INSTANCE_NAME);
 }
 
-async function startBlobCron(env) {
-  const container = getBlobCronContainer(env);
-  await container.start({ envVars: buildBlobCronEnv(env) });
+function getReprocessContainer(env) {
+  return getContainer(env.BLOB_CRON_CONTAINER, REPROCESS_INSTANCE_NAME);
+}
+
+async function startBlobCron(env, args = []) {
+  const container = args.includes("-reprocess-all")
+    ? getReprocessContainer(env)
+    : getBlobCronContainer(env);
+  await container.start({ envVars: buildBlobCronEnv(env), args });
   return container;
 }
 
@@ -122,6 +129,7 @@ export default {
         endpoints: [
           "GET /docs", "GET /docs/openapi.json",
           "POST /admin/run", "GET /admin/state",
+          "POST /admin/jobs/reprocess-all",
           "GET /admin/job-result", "GET /admin/logs",
         ],
       });
@@ -147,6 +155,13 @@ export default {
       const unauthorized = await requireAdmin(request, env);
       if (unauthorized) return unauthorized;
       const container = await startBlobCron(env);
+      return Response.json({ started: true, state: await safeState(container) }, { status: 202 });
+    }
+
+    if (url.pathname === "/admin/jobs/reprocess-all" && request.method === "POST") {
+      const unauthorized = await requireAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      const container = await startBlobCron(env, ["-reprocess-all"]);
       return Response.json({ started: true, state: await safeState(container) }, { status: 202 });
     }
 

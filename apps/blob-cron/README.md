@@ -43,6 +43,12 @@ This application is a Python batch job that scans transcript files through the `
     poetry run python main.py
     ```
 
+    Reprocess all transcript items (including ones that already have `.md` files):
+
+    ```bash
+    poetry run python main.py -reprocess-all
+    ```
+
 ## Cloudflare Containers deployment
 
 This app is now designed to run as a **Cloudflare Container batch job** launched by a Worker, not as an in-container cron daemon.
@@ -51,6 +57,7 @@ This app is now designed to run as a **Cloudflare Container batch job** launched
 - `wrangler.jsonc` declares the cron trigger, container image, and Durable Object binding.
 - `Dockerfile` now runs `python3 main.py` once and exits.
 - `POST /admin/run` triggers a manual run.
+- `POST /admin/jobs/reprocess-all` triggers a manual full reprocess run.
 - `GET /admin/state` returns the current container state.
 
 Manual admin routes require:
@@ -61,6 +68,13 @@ Example manual trigger:
 
 ```bash
 curl -X POST https://<your-worker-url>/admin/run \
+  -H "Authorization: Bearer $BLOB_CRON_ADMIN_TOKEN"
+```
+
+Example manual full reprocess:
+
+```bash
+curl -X POST https://<your-worker-url>/admin/jobs/reprocess-all \
   -H "Authorization: Bearer $BLOB_CRON_ADMIN_TOKEN"
 ```
 

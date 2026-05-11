@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 import json
 import logging
 import os
@@ -43,7 +44,18 @@ async def main():
     This function initializes all the components of the application,
     wires them together, and starts the asynchronous scanning process.
     """
+    parser = argparse.ArgumentParser(description="NJMTech blob-cron batch processor")
+    parser.add_argument(
+        "-reprocess-all",
+        "--reprocess-all",
+        action="store_true",
+        help="Reprocess all transcript items, including directories that already have markdown notes.",
+    )
+    args = parser.parse_args()
+
     logging.info("Starting NJMTech Blob Cron job...")
+    if args.reprocess_all:
+        logging.info("Running in reprocess-all mode (existing markdown and notes_url entries will be overwritten).")
 
     try:
         # 1. Validate configuration
@@ -55,7 +67,8 @@ async def main():
         markdown_processor = MarkdownTransformer(blob_storage=blob_storage)
         scanner = DirectoryScanner(
             blob_storage=blob_storage,
-            file_processor=markdown_processor
+            file_processor=markdown_processor,
+            reprocess_all=args.reprocess_all,
         )
 
         # 3. Run the main async logic
