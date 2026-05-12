@@ -44,6 +44,7 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 RUN git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp.git /whisper.cpp && \
     cd /whisper.cpp && \
     sh ./models/download-ggml-model.sh base.en && \
+    sh ./models/download-ggml-model.sh tiny.en && \
     cmake -B build -DCMAKE_BUILD_TYPE=Release && \
     cmake --build build -j && \
     cp build/bin/whisper-cli /usr/local/bin/whisper-cli
