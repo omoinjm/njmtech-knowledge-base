@@ -2,6 +2,10 @@
 
 import { revalidateTag, unstable_cache } from "next/cache";
 import { 
+  dbCreateKnowledgeBase,
+  dbGetDefaultKnowledgeBase,
+  dbGetKnowledgeBaseById,
+  dbGetKnowledgeBases,
   dbGetMediaItems, 
   dbGetByUrl, 
   dbUpsertMediaItem, 
@@ -13,7 +17,17 @@ import { fetchVideoMeta } from "@/lib/metadata";
 import { checkBlobFiles } from "@/lib/blob-utils";
 import { categorizeTranscript } from "@/lib/categorize";
 import type { MediaItem } from "@/types/media";
-import type { ActionResponse, AddMediaResult } from "@/types/api";
+import type { ActionResponse, AddMediaResult, KnowledgeBaseState } from "@/types/api";
+
+async function getCachedKnowledgeBases() {
+  const cached = unstable_cache(
+    async () => dbGetKnowledgeBases(),
+    ["knowledge-bases"],
+    { tags: ["knowledge-bases"], revalidate: 60 },
+  );
+
+  return cached();
+}
 
 /**
  * Retrieves all non-deleted media items from the database.
@@ -21,18 +35,63 @@ import type { ActionResponse, AddMediaResult } from "@/types/api";
  *
  * @returns Array of media items
  */
-export const getMediaItems = unstable_cache(
-  async (): Promise<MediaItem[]> => {
-    try {
-      return await dbGetMediaItems();
-    } catch (err) {
-      console.error("[getMediaItems] Failed to fetch media items from DB:", err);
-      return [];
-    }
-  },
-  ["media-items"],
-  { tags: ["media"], revalidate: 60 }
-);
+export async function getMediaItems(knowledgeBaseId: string): Promise<MediaItem[]> {
+  const cached = unstable_cache(
+    async (): Promise<MediaItem[]> => {
+      try {
+        return await dbGetMediaItems(knowledgeBaseId);
+      } catch (err) {
+        console.error("[getMediaItems] Failed to fetch media items from DB:", err);
+        return [];
+      }
+    },
+    ["media-items", knowledgeBaseId],
+    { tags: ["media", `media:${knowledgeBaseId}`], revalidate: 60 },
+  );
+
+  return cached();
+}
+
+export async function getKnowledgeBaseState(
+  selectedKnowledgeBaseId?: string,
+): Promise<KnowledgeBaseState> {
+  const knowledgeBases = await getCachedKnowledgeBases();
+  const fallbackKnowledgeBase = knowledgeBases[0] ?? await dbGetDefaultKnowledgeBase();
+  const activeKnowledgeBase =
+    (selectedKnowledgeBaseId
+      ? knowledgeBases.find((knowledgeBase) => knowledgeBase.id === selectedKnowledgeBaseId)
+      : null) ?? fallbackKnowledgeBase;
+
+  return {
+    knowledgeBases,
+    activeKnowledgeBase,
+    items: await getMediaItems(activeKnowledgeBase.id),
+  };
+}
+
+export async function createKnowledgeBase(
+  name: string,
+): Promise<ActionResponse<KnowledgeBaseState>> {
+  try {
+    const activeKnowledgeBase = await dbCreateKnowledgeBase(name);
+    revalidateTag("knowledge-bases");
+
+    return {
+      success: true,
+      data: {
+        knowledgeBases: await dbGetKnowledgeBases(),
+        activeKnowledgeBase,
+        items: [],
+      },
+    };
+  } catch (err) {
+    console.error("[createKnowledgeBase]", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to create knowledge base",
+    };
+  }
+}
 
 /**
  * Resolves a URL into a structured media item by fetching its metadata.
@@ -42,7 +101,7 @@ export const getMediaItems = unstable_cache(
  */
 async function resolveMediaItem(
   url: string
-): Promise<Omit<MediaItem, "id" | "createdAt">> {
+): Promise<Omit<MediaItem, "id" | "createdAt" | "knowledgeBaseId">> {
   const meta = await fetchVideoMeta(url);
   const blobFiles = await checkBlobFiles(meta.platform, meta.videoId);
 
@@ -68,16 +127,23 @@ async function resolveMediaItem(
  * @returns Success status and the resulting item or error message
  */
 export async function addMediaItem(
-  url: string
+  url: string,
+  knowledgeBaseId: string,
 ): Promise<ActionResponse<AddMediaResult>> {
   try {
     const trimmedUrl = url.trim();
     if (!trimmedUrl) return { success: false, error: "URL is required" };
 
-    const existing = await dbGetByUrl(trimmedUrl);
+    const knowledgeBase = await dbGetKnowledgeBaseById(knowledgeBaseId);
+    if (!knowledgeBase) {
+      return { success: false, error: "Knowledge base not found" };
+    }
+
+    const existing = await dbGetByUrl(trimmedUrl, knowledgeBase.id);
     const resolvedItem = await resolveMediaItem(trimmedUrl);
 
     const item = await dbUpsertMediaItem({
+      knowledgeBaseId: knowledgeBase.id,
       url: trimmedUrl,
       platform: resolvedItem.platform,
       videoId: resolvedItem.videoId,
@@ -104,11 +170,13 @@ export async function addMediaItem(
             needsTitleFix ? result.title : undefined
           );
           revalidateTag("media");
+          revalidateTag(`media:${knowledgeBase.id}`);
         }
       }).catch(err => console.error("[addMediaItem] Background categorization failed:", err));
     }
 
     revalidateTag("media");
+    revalidateTag(`media:${knowledgeBase.id}`);
     return { success: true, data: { item } };
   } catch (err) {
     console.error("[addMediaItem]", err);
@@ -123,7 +191,8 @@ export async function addMediaItem(
  * @returns Success status and a temporary media item with a unique ID
  */
 export async function preparePublicMediaItem(
-  url: string
+  url: string,
+  knowledgeBaseId: string,
 ): Promise<ActionResponse<AddMediaResult>> {
   try {
     const trimmedUrl = url.trim();
@@ -137,8 +206,9 @@ export async function preparePublicMediaItem(
           ...resolvedItem,
           id: `public-${crypto.randomUUID()}`,
           createdAt: new Date().toISOString().slice(0, 10),
-        }
-      }
+          knowledgeBaseId,
+        },
+      },
     };
   } catch (err) {
     console.error("[preparePublicMediaItem]", err);
@@ -166,11 +236,15 @@ export async function softDeleteMediaItem(
   id: string
 ): Promise<ActionResponse> {
   try {
+    const existing = await dbGetById(id);
     const deleted = await dbSoftDeleteMediaItem(id);
     if (!deleted) {
       return { success: false, error: "Item not found" };
     }
     revalidateTag("media");
+    if (existing) {
+      revalidateTag(`media:${existing.knowledgeBaseId}`);
+    }
     return { success: true };
   } catch (err) {
     console.error("[softDeleteMediaItem]", err);

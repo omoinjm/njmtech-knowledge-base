@@ -3,6 +3,19 @@
  */
 export type Platform = "youtube" | "tiktok" | "instagram" | "twitter" | "vimeo" | "unknown";
 
+export type KnowledgeBaseMode = "personal" | "public";
+
+export interface KnowledgeBase {
+  /** Unique identifier for the knowledge base */
+  id: string;
+  /** Human-readable knowledge base name */
+  name: string;
+  /** URL-safe slug used for stable references */
+  slug: string;
+  /** ISO date string of when the knowledge base was created */
+  createdAt: string;
+}
+
 /**
  * Represents a single media item in the system.
  */
@@ -31,6 +44,8 @@ export interface MediaItem {
   tags: string[];
   /** ISO date string of when the item was added */
   createdAt: string;
+  /** Knowledge base this item belongs to */
+  knowledgeBaseId: string;
 }
 
 /**

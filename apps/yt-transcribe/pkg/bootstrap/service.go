@@ -64,6 +64,15 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 	}
 	logSecretLoaded("WHISPER_MODEL_PATH")
 
+	resolvedWhisperModelPath, err := transcriber.ResolveModelPath(whisperModelPath)
+	if err != nil {
+		return nil, err
+	}
+	if resolvedWhisperModelPath != whisperModelPath {
+		log.Printf("WHISPER_MODEL_PATH %q not found; using bundled model %q", whisperModelPath, resolvedWhisperModelPath)
+	}
+	whisperModelPath = resolvedWhisperModelPath
+
 	whisperThreads := 1
 	if rawThreads := os.Getenv("WHISPER_THREADS"); rawThreads != "" {
 		parsed, parseErr := strconv.Atoi(rawThreads)

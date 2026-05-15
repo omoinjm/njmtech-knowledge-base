@@ -23,7 +23,7 @@ cp .env.example .env
 
 | Variable | Required | Description |
 |---|---|---|
-| `WHISPER_MODEL_PATH` | ✅ | Path to the `ggml-*.bin` model file |
+| `WHISPER_MODEL_PATH` | ✅ | Path to the `ggml-*.bin` model file. In Docker, if this points to a stale host path but the same model filename exists under `/whisper.cpp/models`, the app will automatically use the bundled file. |
 | `WHISPER_THREADS` | Optional (default: `1`) | Thread count passed to `whisper-cli` (`-t`) |
 | `WHISPER_EXTRA_ARGS` | Optional | Extra args appended to `whisper-cli` (space-delimited) |
 | `UPLOAD_BLOB_API_URL` | ✅ | Upload endpoint for the upload-blob API |

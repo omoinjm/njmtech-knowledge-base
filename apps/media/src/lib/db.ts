@@ -1,8 +1,14 @@
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { neon, neonConfig } from "@neondatabase/serverless";
-import { MediaItem, Platform } from "@/types/media";
+import { KnowledgeBase, MediaItem, Platform } from "@/types/media";
 import { env } from "./env";
+import {
+  DEFAULT_KNOWLEDGE_BASE_NAME,
+  DEFAULT_KNOWLEDGE_BASE_SLUG,
+  generateKnowledgeBaseSlug,
+  normalizeKnowledgeBaseName,
+} from "./knowledge-bases";
 
 const scrypt = promisify(scryptCallback);
 
@@ -62,6 +68,7 @@ if (process.env.NODE_ENV === "development") {
  */
 interface DbRow {
   id: string;
+  knowledge_base_id: string;
   url: string;
   platform: string;
   video_id: string;
@@ -74,6 +81,13 @@ interface DbRow {
   tags: string[] | null;
   created_at: string;
   deleted_at: string | null;
+}
+
+interface KnowledgeBaseRow {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
 }
 
 /**
@@ -105,22 +119,127 @@ function getSql(): ReturnType<typeof neon> {
   return _sql;
 }
 
-let _schemaReady: Promise<void> | null = null;
+let _knowledgeBaseSchemaReady: Promise<void> | null = null;
+let _mediaItemsSchemaReady: Promise<void> | null = null;
 let _personalAccessSchemaReady: Promise<void> | null = null;
+
+/**
+ * Maps a knowledge base database row into the UI shape.
+ */
+function rowToKnowledgeBase(row: KnowledgeBaseRow): KnowledgeBase {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    createdAt: new Date(row.created_at).toISOString().slice(0, 10),
+  };
+}
+
+async function getOrCreateDefaultKnowledgeBase(): Promise<KnowledgeBase> {
+  const existing = await getSql()`
+    SELECT id, name, slug, created_at
+    FROM knowledge_bases
+    WHERE slug = ${DEFAULT_KNOWLEDGE_BASE_SLUG}
+    LIMIT 1
+  ` as KnowledgeBaseRow[];
+
+  if (existing.length > 0) {
+    return rowToKnowledgeBase(existing[0]);
+  }
+
+  const rows = await getSql()`
+    INSERT INTO knowledge_bases (id, name, slug)
+    VALUES (${randomUUID()}, ${DEFAULT_KNOWLEDGE_BASE_NAME}, ${DEFAULT_KNOWLEDGE_BASE_SLUG})
+    RETURNING id, name, slug, created_at
+  ` as KnowledgeBaseRow[];
+
+  return rowToKnowledgeBase(rows[0]);
+}
+
+/**
+ * Ensures the knowledge_bases table exists and that media_items can reference it.
+ */
+async function ensureKnowledgeBaseSchema(): Promise<void> {
+  if (!_knowledgeBaseSchemaReady) {
+    _knowledgeBaseSchemaReady = (async () => {
+      await getSql()`
+        CREATE TABLE IF NOT EXISTS knowledge_bases (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT NOT NULL UNIQUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+
+      await getSql()`
+        ALTER TABLE media_items
+        ADD COLUMN IF NOT EXISTS knowledge_base_id TEXT
+      `;
+
+      await getSql()`
+        DO $$
+        DECLARE
+          constraint_name TEXT;
+          index_name TEXT;
+        BEGIN
+          SELECT c.conname
+          INTO constraint_name
+          FROM pg_constraint c
+          JOIN pg_class t ON t.oid = c.conrelid
+          WHERE t.relname = 'media_items'
+            AND c.contype = 'u'
+            AND pg_get_constraintdef(c.oid) = 'UNIQUE (url)';
+
+          IF constraint_name IS NOT NULL THEN
+            EXECUTE format('ALTER TABLE media_items DROP CONSTRAINT %I', constraint_name);
+          END IF;
+
+          SELECT indexname
+          INTO index_name
+          FROM pg_indexes
+          WHERE schemaname = current_schema()
+            AND tablename = 'media_items'
+            AND indexdef LIKE 'CREATE UNIQUE INDEX % ON % (url)%'
+          LIMIT 1;
+
+          IF index_name IS NOT NULL THEN
+            EXECUTE format('DROP INDEX IF EXISTS %I', index_name);
+          END IF;
+        END $$;
+      `;
+
+      const defaultKnowledgeBase = await getOrCreateDefaultKnowledgeBase();
+
+      await getSql()`
+        UPDATE media_items
+        SET knowledge_base_id = ${defaultKnowledgeBase.id}
+        WHERE knowledge_base_id IS NULL
+      `;
+
+      await getSql()`
+        CREATE UNIQUE INDEX IF NOT EXISTS media_items_knowledge_base_url_idx
+        ON media_items (knowledge_base_id, url)
+      `;
+    })();
+  }
+  return _knowledgeBaseSchemaReady;
+}
 
 /**
  * Ensures the media_items table schema is up to date.
  */
 async function ensureMediaItemsSchema(): Promise<void> {
-  if (!_schemaReady) {
-    _schemaReady = (async () => {
+  if (!_mediaItemsSchemaReady) {
+    _mediaItemsSchemaReady = (async () => {
+      await ensureKnowledgeBaseSchema();
       await getSql()`
         ALTER TABLE media_items
         ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ
       `;
     })();
   }
-  return _schemaReady;
+  return _mediaItemsSchemaReady;
 }
 
 /**
@@ -164,6 +283,7 @@ async function hashPersonalAccessKey(key: string, salt = randomBytes(16).toStrin
 function rowToItem(r: DbRow): MediaItem {
   return {
     id: r.id,
+    knowledgeBaseId: r.knowledge_base_id,
     url: r.url,
     platform: r.platform as Platform,
     videoId: r.video_id,
@@ -178,18 +298,81 @@ function rowToItem(r: DbRow): MediaItem {
   };
 }
 
+async function getKnowledgeBaseByIdInternal(id: string): Promise<KnowledgeBase | null> {
+  const rows = await getSql()`
+    SELECT id, name, slug, created_at
+    FROM knowledge_bases
+    WHERE id = ${id}
+    LIMIT 1
+  ` as KnowledgeBaseRow[];
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rowToKnowledgeBase(rows[0]);
+}
+
+export async function dbGetDefaultKnowledgeBase(): Promise<KnowledgeBase> {
+  await ensureKnowledgeBaseSchema();
+  return getOrCreateDefaultKnowledgeBase();
+}
+
+export async function dbGetKnowledgeBaseById(id: string): Promise<KnowledgeBase | null> {
+  await ensureKnowledgeBaseSchema();
+  return getKnowledgeBaseByIdInternal(id);
+}
+
+export async function dbGetKnowledgeBases(): Promise<KnowledgeBase[]> {
+  await ensureKnowledgeBaseSchema();
+  const rows = await getSql()`
+    SELECT id, name, slug, created_at
+    FROM knowledge_bases
+    ORDER BY created_at ASC
+  ` as KnowledgeBaseRow[];
+
+  if (rows.length === 0) {
+    return [await getOrCreateDefaultKnowledgeBase()];
+  }
+
+  return rows.map(rowToKnowledgeBase);
+}
+
+export async function dbCreateKnowledgeBase(name: string): Promise<KnowledgeBase> {
+  await ensureKnowledgeBaseSchema();
+
+  const normalizedName = normalizeKnowledgeBaseName(name);
+  const existingRows = await getSql()`
+    SELECT slug
+    FROM knowledge_bases
+  ` as Array<{ slug: string }>;
+
+  const slug = generateKnowledgeBaseSlug(
+    normalizedName,
+    existingRows.map((row) => row.slug),
+  );
+
+  const rows = await getSql()`
+    INSERT INTO knowledge_bases (id, name, slug)
+    VALUES (${randomUUID()}, ${normalizedName}, ${slug})
+    RETURNING id, name, slug, created_at
+  ` as KnowledgeBaseRow[];
+
+  return rowToKnowledgeBase(rows[0]);
+}
+
 /**
  * Retrieves all non-deleted media items from the database.
  *
  * @returns Array of media items, sorted by creation date (desc)
  */
-export async function dbGetMediaItems(): Promise<MediaItem[]> {
+export async function dbGetMediaItems(knowledgeBaseId: string): Promise<MediaItem[]> {
   await ensureMediaItemsSchema();
   const rows = await getSql()`
-    SELECT id, url, platform, video_id, title, thumbnail_url, author_name,
+    SELECT id, knowledge_base_id, url, platform, video_id, title, thumbnail_url, author_name,
            transcript_url, notes_url, category, tags, created_at, deleted_at
     FROM media_items
-    WHERE deleted_at IS NULL
+    WHERE knowledge_base_id = ${knowledgeBaseId} AND deleted_at IS NULL
     ORDER BY created_at DESC
   ` as DbRow[];
   return rows.map(rowToItem);
@@ -201,11 +384,11 @@ export async function dbGetMediaItems(): Promise<MediaItem[]> {
  * @param url - The URL to search for
  * @returns The media item if found, otherwise null
  */
-export async function dbGetByUrl(url: string): Promise<MediaItem | null> {
+export async function dbGetByUrl(url: string, knowledgeBaseId: string): Promise<MediaItem | null> {
   await ensureMediaItemsSchema();
   const rows = await getSql()`
     SELECT * FROM media_items
-    WHERE url = ${url} AND deleted_at IS NULL
+    WHERE knowledge_base_id = ${knowledgeBaseId} AND url = ${url} AND deleted_at IS NULL
   ` as DbRow[];
   if (rows.length === 0) return null;
   return rowToItem(rows[0]);
@@ -235,6 +418,7 @@ export async function dbGetById(id: string): Promise<MediaItem | null> {
  * @returns The updated or newly created media item
  */
 export async function dbUpsertMediaItem(item: {
+  knowledgeBaseId: string;
   url: string;
   platform: string;
   videoId: string;
@@ -246,10 +430,10 @@ export async function dbUpsertMediaItem(item: {
 }): Promise<MediaItem> {
   await ensureMediaItemsSchema();
   const rows = await getSql()`
-    INSERT INTO media_items (url, platform, video_id, title, thumbnail_url, author_name, transcript_url, notes_url)
-    VALUES (${item.url}, ${item.platform}, ${item.videoId}, ${item.title},
+    INSERT INTO media_items (knowledge_base_id, url, platform, video_id, title, thumbnail_url, author_name, transcript_url, notes_url)
+    VALUES (${item.knowledgeBaseId}, ${item.url}, ${item.platform}, ${item.videoId}, ${item.title},
             ${item.thumbnailUrl}, ${item.authorName}, ${item.transcriptUrl}, ${item.notesUrl})
-    ON CONFLICT (url) DO UPDATE SET
+    ON CONFLICT (knowledge_base_id, url) DO UPDATE SET
       platform       = EXCLUDED.platform,
       video_id       = EXCLUDED.video_id,
       title          = EXCLUDED.title,

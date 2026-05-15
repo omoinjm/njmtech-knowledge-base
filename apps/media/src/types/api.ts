@@ -1,4 +1,4 @@
-import { MediaItem } from "./media";
+import { KnowledgeBase, MediaItem } from "./media";
 
 /**
  * Standard response shape for server actions.
@@ -41,4 +41,16 @@ export interface OpenAICompletionResponse {
 export interface AddMediaResult {
   /** The newly created or updated media item */
   item: MediaItem;
+}
+
+/**
+ * Result of loading a personal knowledge base and its media items.
+ */
+export interface KnowledgeBaseState {
+  /** Available knowledge bases for the current mode */
+  knowledgeBases: KnowledgeBase[];
+  /** Currently active knowledge base */
+  activeKnowledgeBase: KnowledgeBase;
+  /** Media items belonging to the active knowledge base */
+  items: MediaItem[];
 }

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import MediaDashboard from "@/components/MediaDashboard";
 import PersonalAccessGate from "@/components/PersonalAccessGate";
-import { getMediaItems, hasPersonalAccessConfigured } from "@/app/actions";
+import { getKnowledgeBaseState, hasPersonalAccessConfigured } from "@/app/actions";
 import { PERSONAL_ACCESS_COOKIE } from "@/lib/personal-access-cookie";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +15,13 @@ export default async function PersonalDashboardPage() {
     return <PersonalAccessGate hasKeyConfigured={hasKeyConfigured} />;
   }
 
-  const initialItems = await getMediaItems();
-  return <MediaDashboard initialItems={initialItems} mode="personal" />;
+  const initialState = await getKnowledgeBaseState();
+  return (
+    <MediaDashboard
+      initialItems={initialState.items}
+      initialKnowledgeBases={initialState.knowledgeBases}
+      initialKnowledgeBaseId={initialState.activeKnowledgeBase.id}
+      mode="personal"
+    />
+  );
 }
