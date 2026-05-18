@@ -354,12 +354,12 @@ export default function GraphView({
       className={`relative w-full overflow-hidden border border-border bg-background transition-all duration-300 ${
         isExpanded
           ? "fixed inset-0 z-[80] h-dvh w-screen rounded-none border-none shadow-none"
-          : "h-[calc(100vh-250px)] rounded-xl"
+          : "h-[65vh] rounded-xl sm:h-[calc(100vh-250px)]"
       }`}
       onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
     >
       {/* Interaction Guide */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
+      <div className="absolute left-4 top-4 z-10 hidden flex-col gap-2 pointer-events-none sm:flex">
         <div className="rounded-lg border border-border bg-black/40 p-3 shadow-sm backdrop-blur-md pointer-events-auto">
           <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-400">Controls</h4>
           <ul className="space-y-1.5 text-xs text-white/80">
@@ -419,7 +419,7 @@ export default function GraphView({
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2 pointer-events-none">
+      <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2 sm:right-4 sm:top-4">
         {isExpanded && (
           <div className="rounded-full border border-emerald-500/20 bg-black/45 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.22em] text-emerald-300/75 backdrop-blur-md pointer-events-auto">
             Focus mode
@@ -428,7 +428,7 @@ export default function GraphView({
         <button
           type="button"
           onClick={handleExpandToggle}
-          className="flex items-center gap-2 rounded-full border border-emerald-500/25 bg-black/45 px-3 py-2 text-xs font-medium text-emerald-200/90 shadow-[0_0_24px_rgba(16,185,129,0.08)] backdrop-blur-md transition hover:border-emerald-400/45 hover:text-emerald-100 pointer-events-auto"
+          className="pointer-events-auto flex items-center gap-2 rounded-full border border-emerald-500/25 bg-black/45 px-2.5 py-1.5 text-[11px] font-medium text-emerald-200/90 shadow-[0_0_24px_rgba(16,185,129,0.08)] backdrop-blur-md transition hover:border-emerald-400/45 hover:text-emerald-100 sm:px-3 sm:py-2 sm:text-xs"
         >
           {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           <span>{isExpanded ? "Collapse graph" : "Expand graph"}</span>

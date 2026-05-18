@@ -334,21 +334,22 @@ export default function PublicModeSettings({ onConfigChange }: PublicModeSetting
       {/* Settings Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-        <button className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+        <button className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:h-auto sm:px-3 sm:text-xs">
           <Settings2 size={13} />
-          {hasSavedConfig ? "Providers & tokens" : "Set up public mode"}
+          <span className="sm:hidden">Settings</span>
+          <span className="hidden sm:inline">{hasSavedConfig ? "Providers & tokens" : "Set up public mode"}</span>
         </button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-2xl">
         <div className="flex max-h-[90vh] flex-col">
-          <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-4">
+          <DialogHeader className="shrink-0 border-b px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
             <DialogTitle>Public mode settings</DialogTitle>
             <DialogDescription>
               Pick your transcript and notes providers. Tokens are stored in encrypted browser storage for this browser only.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
             <div>
               <LabelWithTooltip
                 label="Restore passphrase"
@@ -580,7 +581,7 @@ export default function PublicModeSettings({ onConfigChange }: PublicModeSetting
             )}
           </div>
 
-          <DialogFooter className="shrink-0 border-t px-6 py-4 sm:space-x-2">
+          <DialogFooter className="shrink-0 border-t px-4 py-4 sm:space-x-2 sm:px-6">
             {hasSavedConfig && (
               <button
                 type="button"

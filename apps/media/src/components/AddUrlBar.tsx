@@ -25,7 +25,7 @@ const AddUrlBar = ({ onAdd, isLoading = false }: AddUrlBarProps) => {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, delay: 0.25 }}
       onSubmit={handleSubmit}
-      className="flex w-full max-w-2xl items-center gap-2"
+      className="flex w-full max-w-2xl flex-col items-stretch gap-2 sm:flex-row sm:items-center"
     >
       <div className="relative flex-1">
         <Link size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -43,7 +43,7 @@ const AddUrlBar = ({ onAdd, isLoading = false }: AddUrlBarProps) => {
         whileTap={{ scale: isLoading ? 1 : 0.97 }}
         type="submit"
         disabled={isLoading}
-        className="flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
       >
         {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
         {isLoading ? "Adding…" : "Add"}

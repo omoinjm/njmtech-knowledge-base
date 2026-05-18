@@ -542,20 +542,20 @@ export default function MediaDashboard({
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md"
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 max-[375px]:px-2.5 sm:gap-4 sm:px-6 sm:py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
               <LayoutGrid size={16} className="text-primary-foreground" />
             </div>
-            <span className="font-heading text-lg font-bold tracking-tight text-foreground">
+            <span className="font-heading text-base font-bold tracking-tight text-foreground max-[375px]:text-sm sm:text-lg">
               njmtech<span className="text-primary">.media</span>
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="flex items-center rounded-lg border border-border bg-background/50 p-1 shadow-sm">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`flex h-8 w-8 items-center justify-center rounded-md transition-all ${
+                className={`flex h-9 w-9 items-center justify-center rounded-md transition-all sm:h-8 sm:w-8 ${
                   viewMode === "grid"
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -566,7 +566,7 @@ export default function MediaDashboard({
               </button>
               <button
                 onClick={() => setViewMode("graph")}
-                className={`flex h-8 w-8 items-center justify-center rounded-md transition-all ${
+                className={`flex h-9 w-9 items-center justify-center rounded-md transition-all sm:h-8 sm:w-8 ${
                   viewMode === "graph"
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -587,7 +587,7 @@ export default function MediaDashboard({
         </div>
       </motion.header>
 
-      <div className="mx-auto grid max-w-7xl gap-8 px-6 pt-10 pb-16 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="mx-auto grid max-w-7xl gap-5 px-3 pb-10 pt-5 max-[375px]:px-2.5 sm:gap-8 sm:px-6 sm:pt-10 sm:pb-16 lg:grid-cols-[300px_minmax(0,1fr)]">
         <motion.aside
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
@@ -623,7 +623,7 @@ export default function MediaDashboard({
                       onClick={() => handleKnowledgeBaseChange(knowledgeBase.id)}
                       disabled={isPending}
                       className={cn(
-                        "relative min-w-[220px] shrink-0 overflow-hidden rounded-2xl border px-4 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60 lg:min-w-0",
+                        "relative min-w-[156px] shrink-0 overflow-hidden rounded-2xl border px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60 max-[375px]:min-w-[144px] sm:min-w-[220px] sm:px-4 sm:py-3 lg:min-w-0",
                         isActive
                           ? "border-primary/30 bg-primary text-primary-foreground shadow-[0_18px_40px_-28px_rgba(99,102,241,0.95)]"
                           : "border-border/70 bg-background/70 text-foreground hover:border-primary/30 hover:bg-accent/40",
@@ -686,7 +686,7 @@ export default function MediaDashboard({
             className="flex flex-col gap-4 pb-8"
           >
             <div className="space-y-2">
-              <h1 className="font-heading text-2xl font-bold text-foreground">Media Dashboard</h1>
+              <h1 className="font-heading text-lg font-bold text-foreground max-[375px]:text-base sm:text-2xl">Media Dashboard</h1>
               <p className="text-sm text-muted-foreground">
                 {mode === "personal"
                   ? "Personal mode saves items in the shared app database."
@@ -734,7 +734,7 @@ export default function MediaDashboard({
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className="relative shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="relative shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       style={{ WebkitTapHighlightColor: "transparent" }}
                     >
                       {isActive && (
@@ -794,7 +794,7 @@ export default function MediaDashboard({
                       variants={containerVariants}
                       initial="hidden"
                       animate="visible"
-                      className="grid-auto-rows-min grid-flow-dense grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                      className="grid-auto-rows-min grid-flow-dense grid gap-4 sm:gap-5 sm:grid-cols-2 xl:grid-cols-3"
                     >
                       {filteredItems.map((item, index) => (
                         <MediaCard

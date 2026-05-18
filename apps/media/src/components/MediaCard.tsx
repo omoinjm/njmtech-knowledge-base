@@ -247,12 +247,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               unoptimized={shouldBypassImageOptimization}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent opacity-100 transition-opacity duration-300 md:opacity-0 md:group-hover:opacity-100" />
 
             <button
               onClick={handlePlayClick}
               aria-label="Play video"
-              className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              className="absolute inset-0 flex items-center justify-center opacity-100 transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100"
             >
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-transform duration-150 hover:scale-110">
                 <Play size={20} fill="white" />
@@ -274,9 +274,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       </div>
 
       {/* Content / Body */}
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="flex flex-1 flex-col gap-3 p-3.5 sm:p-4">
         <div>
-          <h3 className="font-heading text-sm font-semibold leading-snug text-foreground line-clamp-2">
+          <h3 className="line-clamp-2 font-heading text-[13px] font-semibold leading-snug text-foreground sm:text-sm">
             {item.title}
           </h3>
           {item.authorName && (
@@ -418,13 +418,13 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       </AnimatePresence>
 
       {/* Footer */}
-      <div className="shrink-0 px-4 py-3 border-t border-white/8 flex items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-t border-white/8 px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex max-w-full flex-nowrap items-center gap-1.5 overflow-x-auto pr-1 sm:flex-wrap sm:gap-2 sm:overflow-visible">
           {item.transcriptUrl && item.notesUrl && (
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setAiPanelOpen(prev => !prev)}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-all sm:text-xs ${
                 aiPanelOpen ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300" : "border-emerald-500/20 text-emerald-400/50 hover:text-emerald-300"
               }`}
             >
@@ -438,7 +438,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               whileTap={{ scale: 0.95 }}
               onClick={handleCategorizeClick}
               disabled={isPending || !onCategorize}
-              className="flex items-center gap-1.5 rounded-full border border-amber-500/30 px-2.5 py-1 text-xs text-amber-300 transition-all hover:bg-amber-500/10 disabled:opacity-60"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 px-2.5 py-1 text-[11px] text-amber-300 transition-all hover:bg-amber-500/10 disabled:opacity-60 sm:text-xs"
             >
               <Sparkles size={11} />
               Categorize
@@ -449,7 +449,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleTranscriptClick}
-              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-all sm:text-xs ${
                 transcriptOpen ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300" : "border-white/10 text-white/40 hover:text-white/70"
               }`}
             >
@@ -461,7 +461,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handleNotesClick}
-              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-all ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-all sm:text-xs ${
                 notesOpen ? "bg-blue-500/20 border-blue-400/50 text-blue-300" : "border-white/10 text-white/40 hover:text-white/70"
               }`}
             >
@@ -474,7 +474,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               whileTap={{ scale: 0.95 }}
               onClick={() => onGenerateTranscript(item)}
               disabled={isPending}
-              className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-60"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-accent disabled:opacity-60 sm:text-xs"
             >
               {isPending ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />}
               Generate Transcript
@@ -485,7 +485,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               whileTap={{ scale: 0.95 }}
               onClick={() => onGenerateNotes(item)}
               disabled={isPending}
-              className="flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-60"
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-60 sm:text-xs"
             >
               {isPending ? <Loader2 size={11} className="animate-spin" /> : <StickyNote size={11} />}
               Generate Notes
@@ -496,7 +496,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
         <button
           onClick={handleSoftDelete}
           disabled={isPending}
-          className="p-1.5 rounded-md text-white/25 hover:text-red-400/70 transition-colors"
+          className="rounded-md p-1.5 text-white/25 transition-colors hover:text-red-400/70"
         >
           {isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
         </button>
