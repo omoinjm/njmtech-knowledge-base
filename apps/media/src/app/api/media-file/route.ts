@@ -1,7 +1,9 @@
 import { basename } from "node:path";
 import { NextRequest } from "next/server";
+import { env } from "@/lib/env";
 
 const ALLOWED_HOSTS = new Set(["api.blob.njmtech.co.za", "s3.njmtech.co.za"]);
+const API_BLOB_HOST = "api.blob.njmtech.co.za";
 const ALLOWED_HOST_SUFFIXES = [".r2.dev", ".r2.cloudflarestorage.com"];
 const ALLOWED_PATH_PREFIXES = ["/njmtech-blob-api/yt-transcribe/", "/public-media/"];
 
@@ -15,6 +17,37 @@ function inferContentType(pathname: string, kind: string | null): string {
   }
 
   return "text/plain; charset=utf-8";
+}
+
+function buildCandidateUrls(source: URL): URL[] {
+  const candidates = [source];
+  if (source.hostname === "s3.njmtech.co.za") {
+    const fallback = new URL(source.toString());
+    fallback.hostname = API_BLOB_HOST;
+    candidates.push(fallback);
+  }
+  return candidates;
+}
+
+async function fetchUpstreamMediaFile(source: URL): Promise<Response> {
+  const token = env.uploadBlobApiToken.trim();
+  const candidates = buildCandidateUrls(source);
+  let lastResponse: Response | null = null;
+
+  for (const candidate of candidates) {
+    const shouldAttachBearer = candidate.hostname === API_BLOB_HOST || candidate.hostname === "s3.njmtech.co.za";
+    const response = await fetch(candidate, {
+      cache: "no-store",
+      headers: shouldAttachBearer && token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+
+    if (response.ok) {
+      return response;
+    }
+    lastResponse = response;
+  }
+
+  return lastResponse ?? new Response("Failed to fetch media file", { status: 502 });
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
@@ -48,7 +81,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return new Response("Unsupported media file path", { status: 403 });
   }
 
-  const upstream = await fetch(upstreamUrl, { cache: "no-store" });
+  const upstream = await fetchUpstreamMediaFile(upstreamUrl);
   if (!upstream.ok) {
     return new Response("Failed to fetch media file", { status: upstream.status });
   }

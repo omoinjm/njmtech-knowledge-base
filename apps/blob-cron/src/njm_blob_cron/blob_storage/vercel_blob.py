@@ -29,7 +29,15 @@ class BlobAPIStorage(BlobStorage):
             raise ValueError("UPLOAD_BLOB_API_URL is not set.")
 
         logger.info(f"Using Blob API URL: {api_url}")
-        self.base_url = api_url.rstrip("/")
+        
+        # Robustly handle cases where the base URL might include the API path/endpoint
+        clean_url = api_url.rstrip("/")
+        for suffix in ["/api/v1/blob/upload", "/api/v1/blob/files", "/api/v1/blob/delete", "/api/v1/blob"]:
+            if clean_url.endswith(suffix):
+                clean_url = clean_url[:-len(suffix)]
+                break
+
+        self.base_url = clean_url.rstrip("/")
         self.headers = {
             "Authorization": f"Bearer {api_token}"
         }
