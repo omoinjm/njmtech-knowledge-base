@@ -77,7 +77,8 @@ export const NodePopup: React.FC<NodePopupProps> = ({
     });
   };
 
-  const POPUP_WIDTH = 320;
+  const isMobile = containerWidth < 640;
+  const POPUP_WIDTH = isMobile ? Math.max(280, Math.min(containerWidth - 20, 420)) : 320;
   const thumbnailHost = (() => {
     try {
       return item.thumbnailUrl ? new URL(item.thumbnailUrl).hostname : "";
@@ -88,8 +89,12 @@ export const NodePopup: React.FC<NodePopupProps> = ({
   const shouldBypassImageOptimization =
     thumbnailHost.endsWith("cdninstagram.com") || thumbnailHost.endsWith("fbcdn.net");
   // Basic overflow check
-  const finalX = screenX + POPUP_WIDTH > containerWidth ? screenX - POPUP_WIDTH - 40 : screenX;
-  const finalY = screenY + 400 > containerHeight ? Math.max(10, containerHeight - 530) : screenY;
+  const finalX = isMobile
+    ? Math.max(10, (containerWidth - POPUP_WIDTH) / 2)
+    : (screenX + POPUP_WIDTH > containerWidth ? screenX - POPUP_WIDTH - 40 : screenX);
+  const finalY = isMobile
+    ? Math.max(12, Math.min(screenY, containerHeight - 560))
+    : (screenY + 400 > containerHeight ? Math.max(10, containerHeight - 530) : screenY);
 
   return (
     <motion.div
@@ -101,10 +106,10 @@ export const NodePopup: React.FC<NodePopupProps> = ({
         left: finalX,
         top: finalY,
       }}
-      className="fixed z-50 w-[320px] max-h-[520px] flex flex-col rounded-xl border border-emerald-500/25 bg-[#050a0e]/95 p-0 shadow-[0_0_30px_rgba(0,255,136,0.1)] backdrop-blur-xl overflow-hidden"
+      className="fixed z-50 flex max-h-[82dvh] w-[calc(100vw-20px)] max-w-[420px] flex-col overflow-hidden rounded-xl border border-emerald-500/25 bg-[#050a0e]/95 p-0 shadow-[0_0_30px_rgba(0,255,136,0.1)] backdrop-blur-xl sm:max-h-[520px] sm:w-[320px] sm:max-w-[320px]"
     >
       {/* Header */}
-      <div className="shrink-0 flex items-start gap-3 p-4 bg-emerald-500/5">
+      <div className="shrink-0 flex items-start gap-3 bg-emerald-500/5 p-3 sm:p-4">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-emerald-500/20 bg-black">
           {item.thumbnailUrl ? (
             <Image
@@ -187,14 +192,14 @@ export const NodePopup: React.FC<NodePopupProps> = ({
       </div>
 
       {/* Footer Actions */}
-      <div className="shrink-0 flex items-center justify-between gap-2 p-3 bg-black/40 border-t border-emerald-500/10">
-        <div className="flex gap-2">
+      <div className="shrink-0 border-t border-emerald-500/10 bg-black/40 p-3">
+        <div className="flex flex-wrap items-center gap-2">
           {item.transcriptUrl && item.notesUrl && (
             <Button
               variant="outline"
               size="sm"
               onClick={handleAiToggle}
-              className={`h-8 border-emerald-500/30 text-[11px] transition-colors ${
+              className={`h-8 min-w-[88px] border-emerald-500/30 text-[11px] transition-colors ${
                 panelOpen
                   ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/50'
                   : 'text-emerald-400/70 bg-transparent hover:bg-emerald-500/10 hover:text-emerald-300'
@@ -210,23 +215,23 @@ export const NodePopup: React.FC<NodePopupProps> = ({
               size="sm"
               onClick={handleCategorize}
               disabled={isPending}
-              className="h-8 border-amber-500/30 text-[11px] text-amber-300/80 hover:bg-amber-500/10 hover:text-amber-200"
+              className="h-8 min-w-[88px] border-amber-500/30 text-[11px] text-amber-300/80 hover:bg-amber-500/10 hover:text-amber-200"
             >
               <Sparkles size={12} className="mr-1.5" />
               Categorize
             </Button>
           )}
+          <Button
+            size="sm"
+            asChild
+            className="h-8 min-w-[104px] bg-emerald-500/20 text-[11px] text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40"
+          >
+            <a href={item.url} target="_blank" rel="noopener noreferrer">
+              <Play size={12} className="mr-1.5 fill-current" />
+              Watch Video
+            </a>
+          </Button>
         </div>
-        <Button
-          size="sm"
-          asChild
-          className="h-8 bg-emerald-500/20 border border-emerald-500/40 text-[11px] text-emerald-300 hover:bg-emerald-500/30"
-        >
-          <a href={item.url} target="_blank" rel="noopener noreferrer">
-            <Play size={12} className="mr-1.5 fill-current" />
-            Watch Video
-          </a>
-        </Button>
       </div>
       {actionError && (
         <div className="shrink-0 border-t border-red-500/10 px-3 py-2 text-[11px] text-red-300/80">

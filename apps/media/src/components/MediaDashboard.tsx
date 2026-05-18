@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useTransition, useMemo, useRef, useEffect, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpenText, LayoutGrid, Network, Plus } from "lucide-react";
+import { BookOpenText, ChevronDown, LayoutGrid, Network, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import AddUrlBar from "@/components/AddUrlBar";
 import MediaCard from "@/components/MediaCard";
@@ -592,7 +592,7 @@ export default function MediaDashboard({
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.45, delay: 0.1, ease: "easeOut" }}
-          className="lg:sticky lg:top-24 lg:self-start"
+          className="hidden lg:sticky lg:top-24 lg:block lg:self-start"
         >
           <div className="overflow-hidden rounded-[28px] border border-border/70 bg-card/80 shadow-[0_18px_70px_-42px_rgba(15,23,42,0.55)] backdrop-blur">
             <div className="border-b border-border/70 bg-gradient-to-br from-primary/12 via-transparent to-transparent px-5 py-5">
@@ -679,6 +679,72 @@ export default function MediaDashboard({
         </motion.aside>
 
         <div className="min-w-0">
+          <motion.details
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 }}
+            className="mb-4 overflow-hidden rounded-2xl border border-border/70 bg-card/80 lg:hidden"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3">
+              <span className="truncate text-sm font-medium text-foreground">{knowledgeBaseSummary}</span>
+              <ChevronDown size={16} className="text-muted-foreground" />
+            </summary>
+            <div className="space-y-3 border-t border-border/70 px-3 py-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {knowledgeBases.map((knowledgeBase) => {
+                  const isActive = activeKnowledgeBase?.id === knowledgeBase.id;
+                  return (
+                    <button
+                      key={knowledgeBase.id}
+                      type="button"
+                      onClick={() => handleKnowledgeBaseChange(knowledgeBase.id)}
+                      disabled={isPending}
+                      className={cn(
+                        "relative min-w-[156px] shrink-0 overflow-hidden rounded-2xl border px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60",
+                        isActive
+                          ? "border-primary/30 bg-primary text-primary-foreground shadow-[0_18px_40px_-28px_rgba(99,102,241,0.95)]"
+                          : "border-border/70 bg-background/70 text-foreground hover:border-primary/30 hover:bg-accent/40",
+                      )}
+                    >
+                      <span className="relative z-10 block truncate text-sm font-semibold">{knowledgeBase.name}</span>
+                      <span
+                        className={cn(
+                          "relative z-10 mt-1 block truncate text-[11px] uppercase tracking-[0.22em]",
+                          isActive ? "text-primary-foreground/70" : "text-muted-foreground",
+                        )}
+                      >
+                        {knowledgeBase.slug}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <form onSubmit={handleCreateKnowledgeBase} className="rounded-2xl border border-dashed border-border/80 bg-background/60 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Create a new base
+                </p>
+                <div className="flex flex-col gap-2">
+                  <Input
+                    value={newKnowledgeBaseName}
+                    onChange={(event) => setNewKnowledgeBaseName(event.target.value)}
+                    placeholder="e.g. Hiring, onboarding, support"
+                    maxLength={80}
+                    disabled={isPending}
+                    className="h-11 border-border/70 bg-background"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isPending || !newKnowledgeBaseName.trim()}
+                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Plus size={16} />
+                    Create knowledge base
+                  </button>
+                </div>
+              </form>
+            </div>
+          </motion.details>
+
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}

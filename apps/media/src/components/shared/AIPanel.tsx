@@ -17,13 +17,13 @@ import type { VariantStyles } from "@/types/ui";
  */
 const variantConfig: Record<AIPanelVariant, VariantStyles> = {
   card: {
-    spacing: "px-4 py-3",
-    pillTextSize: "text-xs",
+    spacing: "px-3 py-3 sm:px-4",
+    pillTextSize: "text-[11px] sm:text-xs",
     transcriptMaxH: "max-h-[280px]",
     answerPadding: "p-3",
   },
   popup: {
-    spacing: "px-4 pt-3 pb-1",
+    spacing: "px-3 pb-1 pt-3 sm:px-4",
     pillTextSize: "text-[11px]",
     transcriptMaxH: "max-h-[200px]",
     answerPadding: "p-2.5",
@@ -141,7 +141,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
         <p className="text-[10px] uppercase tracking-widest text-emerald-400/50 font-semibold mb-2">
           Notes Preview
         </p>
-        <div className="prose prose-invert prose-sm text-[12px] leading-relaxed">
+        <div className="prose prose-invert prose-sm text-[12px] leading-relaxed sm:text-[13px]">
           {notesState.status === "loading" ? (
             <div className="space-y-2 animate-pulse">
               <div className="h-3 w-full bg-emerald-500/10 rounded" />
@@ -168,7 +168,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
       </div>
 
       {/* Question Pills */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
+      <div className="mb-3 flex flex-wrap gap-2">
         {isLoadingQuestions || transcriptState.status === "loading" ? (
           [88, 112, 96, 124].map((w, i) => (
             <div
@@ -182,7 +182,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
             <button
               key={q}
               onClick={() => handleQuestionClick(q)}
-              className={`${styles.pillTextSize} px-2.5 py-1 rounded-full border transition-all duration-150 text-left ${
+              className={`${styles.pillTextSize} min-h-8 rounded-full border px-3 py-1.5 text-left transition-all duration-150 ${
                 activeQuestion === q
                   ? "bg-emerald-500/25 border-emerald-400/60 text-emerald-300"
                   : "bg-transparent border-emerald-500/25 text-emerald-400/70 hover:border-emerald-400/40 hover:text-emerald-300"
@@ -235,7 +235,7 @@ export const AIPanel: React.FC<AIPanelProps> = ({
       {transcriptState.status === "success" && (
         <button
           onClick={() => setTranscriptVisible((prev) => !prev)}
-          className="flex items-center gap-1 text-[11px] text-emerald-500/40 hover:text-emerald-400/70 transition-colors mb-2"
+          className="mb-2 flex min-h-8 items-center gap-1.5 text-[11px] text-emerald-500/40 transition-colors hover:text-emerald-400/70"
         >
           <ChevronRight
             size={11}
