@@ -32,7 +32,11 @@ class BlobAPIStorage(BlobStorage):
         
         # Robustly handle cases where the base URL might include the API path/endpoint
         clean_url = api_url.rstrip("/")
-        for suffix in ["/api/v1/blob/upload", "/api/v1/blob/files", "/api/v1/blob/delete", "/api/v1/blob"]:
+        suffixes = [
+            "/api/v1/blob/upload", "/api/v1/blob/files", "/api/v1/blob/delete", "/api/v1/blob",
+            "/api/v1/upload", "/api/v1/files", "/api/v1/delete", "/api/v1"
+        ]
+        for suffix in suffixes:
             if clean_url.endswith(suffix):
                 clean_url = clean_url[:-len(suffix)]
                 break
