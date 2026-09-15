@@ -204,10 +204,12 @@ async def list_blobs(settings):
     )
 
     if response.status != 200:
-        try:
-            details = await response.json()
-        except Exception:
-            details = await response.text()
+        # R2/S3 error bodies are XML, not JSON — response.text() can only be
+        # called once (the Workers fetch Response body is a single-use
+        # stream), so don't try response.json() first and fall back on
+        # failure: by the time .json() fails, the stream is already spent
+        # and .text() raises BodyUsedError, masking the real S3 error.
+        details = await response.text()
         raise RuntimeError(
             f"Blob API request failed (status {response.status}): {details}"
         )

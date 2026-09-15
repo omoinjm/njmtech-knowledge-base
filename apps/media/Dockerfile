@@ -1,6 +1,5 @@
 # Install dependencies only when needed
-FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
 # Install pnpm
@@ -12,18 +11,24 @@ COPY apps/media/package.json ./apps/media/
 RUN pnpm install --frozen-lockfile
 
 # Rebuild the source code only when needed
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy the whole deps stage, not just the root node_modules: pnpm workspaces
+# also link a package-local node_modules (e.g. apps/media/node_modules/.bin/next)
+# which is what actually resolves the `next` binary at build time.
+COPY --from=deps /app ./
 COPY . .
 
 # Install pnpm again for the builder stage
 RUN npm install -g pnpm
 
-RUN pnpm nx build media
+# Build with the app's own next build script, not the Nx executor: Nx 22.6.5's
+# @nx/next build executor pulls in Next.js 16 as an internal peer, which
+# conflicts with this app's pinned Next 15 and corrupts the Turbopack build.
+RUN pnpm --filter njmtech-media run build
 
 # Production image, copy all the files and run next
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV production

@@ -4,20 +4,26 @@ services:
       context: ./apps/upload-blob
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
-    env_file:
-      - environments/upload-blob.env
+      - "8787:8787"
+    # Cloudflare Workers (via wrangler/pywrangler) don't inherit ambient
+    # container env vars into the Worker's `env` bindings — they only read
+    # wrangler.jsonc `vars`, `.dev.vars`, or an auto-loaded `.env` in the
+    # project directory. So this app's credentials must be a real file at
+    # runtime, not env_file (which just sets container-level OS env vars).
+    volumes:
+      - ./apps/upload-blob/.env:/app/.env:ro
     networks:
       - njmtech-network
     restart: always
 
   media:
     build:
-      context: ./apps/upload-blob
+      context: .
       dockerfile: apps/media/Dockerfile
     ports:
       - "3000:3000"
     env_file:
+      - apps/media/.env.development.local
       - environments/media.env
     networks:
       - njmtech-network
@@ -30,6 +36,7 @@ services:
       context: ./apps/yt-transcribe
       dockerfile: Dockerfile
     env_file:
+      - apps/yt-transcribe/.env
       - environments/yt-transcribe.env
     networks:
       - njmtech-network
@@ -45,6 +52,7 @@ services:
       - ./apps/blob-cron/src:/app/src
       - ./apps/blob-cron/main.py:/app/main.py
     env_file:
+      - apps/blob-cron/.env
       - environments/blob-cron.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
