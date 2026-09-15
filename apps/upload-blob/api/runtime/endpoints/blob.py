@@ -36,14 +36,14 @@ async def handle_blob_routes(request, env, method, path, query):
         data = None
 
         if not no_cache:
-            cached = await cache_get_json(settings, BLOB_FILES_CACHE_KEY)
+            cached = await cache_get_json(env, BLOB_FILES_CACHE_KEY)
             if isinstance(cached, list):
                 data = cached
-                cache_source = "redis"
+                cache_source = "kv"
 
         if data is None:
             data = await list_blobs(settings)
-            await cache_set_json(settings, BLOB_FILES_CACHE_KEY, data, settings.CACHE_TTL)
+            await cache_set_json(env, BLOB_FILES_CACHE_KEY, data, settings.CACHE_TTL)
 
         response_headers = (
             {

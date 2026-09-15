@@ -15,7 +15,6 @@ class Settings:
     CLOUDFLARE_S3_ACCESS_KEY_ID: str
     CLOUDFLARE_S3_SECRET_ACCESS_KEY: str
     CLOUDFLARE_S3_BUCKET: str
-    REDIS_URL: str | None = None
     CRON_SECRET: str | None = None
     CACHE_TTL: int = 86400  # 24 hours
     BLOB_PREFIX: str = "njmtech-blob-api/"
@@ -47,7 +46,6 @@ class Settings:
             CLOUDFLARE_S3_ACCESS_KEY_ID=get_env("CLOUDFLARE_S3_ACCESS_KEY_ID"),
             CLOUDFLARE_S3_SECRET_ACCESS_KEY=get_env("CLOUDFLARE_S3_SECRET_ACCESS_KEY"),
             CLOUDFLARE_S3_BUCKET=get_env("CLOUDFLARE_S3_BUCKET"),
-            REDIS_URL=get_env("REDIS_URL"),
             CRON_SECRET=get_env("CRON_SECRET"),
             CACHE_TTL=int(get_env("CACHE_TTL", "86400")),
             BLOB_PREFIX=get_env("BLOB_PREFIX", "njmtech-blob-api/"),

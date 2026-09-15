@@ -134,8 +134,8 @@ WORKER_OPENAPI = {
                     "cache_bypass": {"type": "boolean", "example": False},
                     "cache_source": {
                         "type": "string",
-                        "enum": ["redis", "blob"],
-                        "example": "redis",
+                        "enum": ["kv", "blob"],
+                        "example": "kv",
                     },
                     "count": {"type": "integer", "example": 26},
                     "data": {
@@ -247,7 +247,7 @@ WORKER_OPENAPI = {
                             "enum": ["1", "true", "yes", "on", "0", "false", "no", "off"],
                             "default": "false",
                         },
-                        "description": "Bypass Redis cache and fetch directly from Blob.",
+                        "description": "Bypass KV cache and fetch directly from Blob.",
                     }
                 ],
                 "responses": {
@@ -292,7 +292,7 @@ WORKER_OPENAPI = {
                             "enum": ["1", "true", "yes", "on", "0", "false", "no", "off"],
                             "default": "false",
                         },
-                        "description": "Bypass Redis cache and fetch directly from Blob.",
+                        "description": "Bypass KV cache and fetch directly from Blob.",
                     }
                 ],
                 "responses": {

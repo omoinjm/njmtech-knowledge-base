@@ -84,13 +84,13 @@ curl -X POST \
 *   **Headers:**
     *   `Authorization: Bearer YOUR_API_TOKEN`
 *   **Query Params:**
-    *   `no_cache` (optional): `1|true|yes|on` to bypass Redis and fetch directly from object storage
+    *   `no_cache` (optional): `1|true|yes|on` to bypass the KV cache and fetch directly from object storage
 *   **Notes:**
     *   Trailing slash variants are supported (for example `/api/v1/blob/files/`).
-    *   Default behavior (`no_cache` omitted/false): read from Redis cache first, then fallback to object storage and refresh cache.
-    *   `no_cache=1`: bypass Redis for this request, fetch from object storage, and refresh Redis cache.
+    *   Default behavior (`no_cache` omitted/false): read from the Workers KV cache first, then fallback to object storage and refresh the cache.
+    *   `no_cache=1`: bypass KV for this request, fetch from object storage, and refresh the KV cache.
     *   Response includes:
-        *   `cache_source: "redis" | "blob"`
+        *   `cache_source: "kv" | "blob"`
         *   paths with only `.txt` files are included (`md_url` can be `null`)
     *   When `no_cache` is enabled, response also includes:
         *   `cache_bypass: true` in JSON

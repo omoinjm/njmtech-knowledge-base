@@ -13,6 +13,12 @@
 	"vars": {
 		"BLOB_PREFIX": "njmtech-blob-api/"
 	},
+	"kv_namespaces": [
+		{
+			"binding": "UPLOAD_BLOB_CACHE",
+			"id": "ef7d631cb7b446a59d6382be4417e4ce"
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
