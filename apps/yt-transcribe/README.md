@@ -1,6 +1,6 @@
 # yt-transcribe
 
-A Go transcription worker and HTTP API that downloads audio from YouTube, Instagram, and other platforms supported by `yt-dlp`, transcribes it using `whisper.cpp`, and uploads the transcript (SRT format with timestamps) through the `upload-blob` API backed by Cloudflare's S3-compatible storage. It can run as a CLI worker, pull the next job from Postgres, reprocess existing records, or expose an HTTP API.
+A Go transcription worker and HTTP API that downloads audio from YouTube, Instagram, and other platforms supported by `yt-dlp`, transcribes it using `whisper.cpp`, and uploads the transcript (SRT format with timestamps) through the `upload-blob` API backed by Cloudflare's S3-compatible storage. It can run as a CLI worker, pull the next job from Cloudflare D1, reprocess existing records, or expose an HTTP API.
 
 ## Features
 
@@ -9,7 +9,7 @@ A Go transcription worker and HTTP API that downloads audio from YouTube, Instag
 - Uploads transcripts through the upload-blob API to Cloudflare S3 / R2
 - Three run modes: single URL, DB-driven, and reprocess-all
 - HTTP API mode for Cloudflare Containers and local server use
-- Idle-safe DB connection (uses `pgxpool` — survives Neon's connection timeouts during long jobs)
+- Talks to Cloudflare D1 over its REST API (no native binding — this runs as a plain Go binary, not a Worker)
 
 ---
 
@@ -29,7 +29,9 @@ cp .env.example .env
 | `UPLOAD_BLOB_API_URL` | ✅ | Upload endpoint for the upload-blob API |
 | `UPLOAD_BLOB_API_TOKEN` | ✅ | Auth token for the upload-blob API |
 | `PORT` | Cloudflare container / local API only | Port for HTTP server mode |
-| `POSTGRES_URL` | `-db` / `-reprocess-all` only | Neon / Postgres connection string |
+| `CLOUDFLARE_ACCOUNT_ID` | `-db` / `-reprocess-all` only | Cloudflare account ID that owns the D1 database |
+| `CLOUDFLARE_D1_DATABASE_ID` | `-db` / `-reprocess-all` only | D1 database ID (njmtech-media) |
+| `CLOUDFLARE_D1_API_TOKEN` | `-db` / `-reprocess-all` only | Cloudflare API token scoped to D1 edit |
 | `DISCORD_WEBHOOK_URL` | Optional | Discord webhook URL for job failure alerts (`status=error`) |
 | `DOCKERHUB_USERNAME` | Docker Compose only | Your Docker Hub username (resolves the image name) |
 
@@ -141,7 +143,7 @@ Admin routes require:
 
 Cloudflare's **Events** view mostly shows Worker lifecycle logs. Detailed batch execution logs come from the container runtime, so use `/admin/job-result` for the latest success/error/idle summary and `/admin/logs/job` for the full container output when a cron run looks quiet.
 
-`-db` retry/backoff state is persisted in Postgres table `media_item_retry_state` (auto-created on startup), so retries are no longer reset by container restarts or placement changes.
+`-db` retry/backoff state is persisted in the D1 table `media_item_retry_state` (auto-created on startup), so retries are no longer reset by container restarts or placement changes.
 
 YouTube auth/cookie failures (for example, `Sign in to confirm you're not a bot`) are automatically classified as long-backoff errors (24h) and surfaced with a clear remediation message in `/admin/job-result`.
 

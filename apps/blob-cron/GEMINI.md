@@ -32,7 +32,7 @@ cp .env.example .env
 The required environment variables are:
 - `UPLOAD_BLOB_API_URL`: Your upload-blob API URL.
 - `UPLOAD_BLOB_API_TOKEN`: Your upload-blob API token.
-- `POSTGRES_URL`: Postgres connection string used when updating media records.
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID`, `CLOUDFLARE_D1_API_TOKEN`: Cloudflare D1 credentials used when updating media records.
 - `OLLAMA_MODEL_ID`: The Ollama model to use (e.g., `llama3.2`).
 - `OLLAMA_BASE_URL`: URL of your local Ollama instance.
 - `ROOT_SCAN_FOLDER`: The root directory to scan in object storage.
