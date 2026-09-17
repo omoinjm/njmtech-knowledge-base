@@ -46,8 +46,6 @@ services:
       - ./apps/blob-cron/main.py:/app/main.py
     env_file:
       - environments/blob-cron.env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - njmtech-network
     restart: always

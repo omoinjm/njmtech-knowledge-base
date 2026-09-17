@@ -8,7 +8,7 @@ The core technologies used are:
 - **Python 3.9+**: The primary programming language.
 - **Poetry**: For dependency management and packaging.
 - **Cloudflare S3 / R2 via upload-blob**: The target storage system for file scanning and writing.
-- **Ollama**: To run the AI model locally for text-to-markdown transformation.
+- **Cloudflare Workers AI**: Hosted LLM inference (via its REST API) for text-to-markdown transformation.
 - **asyncio**: For concurrent processing of files.
 
 ## Building and Running
@@ -33,8 +33,8 @@ The required environment variables are:
 - `UPLOAD_BLOB_API_URL`: Your upload-blob API URL.
 - `UPLOAD_BLOB_API_TOKEN`: Your upload-blob API token.
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID`, `CLOUDFLARE_D1_API_TOKEN`: Cloudflare D1 credentials used when updating media records.
-- `OLLAMA_MODEL_ID`: The Ollama model to use (e.g., `llama3.2`).
-- `OLLAMA_BASE_URL`: URL of your local Ollama instance.
+- `CLOUDFLARE_AI_API_TOKEN`: Cloudflare API token scoped to Workers AI (Read + Edit), used for the text-to-markdown transformation.
+- `CLOUDFLARE_AI_MODEL`: The Workers AI model to use (default: `@cf/meta/llama-3.3-70b-instruct-fp8-fast`).
 - `ROOT_SCAN_FOLDER`: The root directory to scan in object storage.
 
 ### 3. Running the Application
