@@ -1,8 +1,7 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { neon, neonConfig } from "@neondatabase/serverless";
+import { sql } from "./d1";
 import { KnowledgeBase, MediaItem, Platform } from "@/types/media";
-import { env } from "./env";
 import {
   DEFAULT_KNOWLEDGE_BASE_NAME,
   DEFAULT_KNOWLEDGE_BASE_SLUG,
@@ -12,59 +11,10 @@ import {
 
 const scrypt = promisify(scryptCallback);
 
-// In local dev, Node.js undici (used by fetch) doesn't fall back from IPv6 to IPv4.
-// Use the native https module directly to force IPv4 resolution.
-if (process.env.NODE_ENV === "development") {
-  const dns = require("node:dns/promises") as typeof import("node:dns/promises");
-  const https = require("node:https") as typeof import("node:https");
-
-  neonConfig.fetchFunction = async (
-    url: string | URL | Request,
-    init?: RequestInit
-  ): Promise<Response> => {
-    const urlStr =
-      typeof url === "string"
-        ? url
-        : url instanceof URL
-          ? url.toString()
-          : (url as Request).url;
-    const urlObj = new URL(urlStr);
-    const [ip] = await dns.resolve4(urlObj.hostname);
-
-    return new Promise<Response>((resolve, reject) => {
-      const req = https.request(
-        {
-          host: ip,
-          port: 443,
-          path: urlObj.pathname + urlObj.search,
-          method: (init?.method ?? "POST") as string,
-          headers: {
-            ...(init?.headers as Record<string, string>),
-            Host: urlObj.hostname,
-          },
-        },
-        (res) => {
-          const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
-          res.on("end", () =>
-            resolve(
-              new Response(Buffer.concat(chunks), {
-                status: res.statusCode ?? 200,
-                headers: res.headers as Record<string, string>,
-              })
-            )
-          );
-        }
-      );
-      req.on("error", reject);
-      if (init?.body) req.write(init.body as string | Uint8Array);
-      req.end();
-    });
-  };
-}
-
 /**
  * Database row shape for the media_items table.
+ * `tags` is stored as a JSON-serialized string (D1/SQLite has no native
+ * array type) and parsed back into string[] in rowToItem().
  */
 interface DbRow {
   id: string;
@@ -78,7 +28,7 @@ interface DbRow {
   transcript_url: string | null;
   notes_url: string | null;
   category: string | null;
-  tags: string[] | null;
+  tags: string | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -99,29 +49,7 @@ interface AccessKeyRow {
   key_hash: string;
 }
 
-// Lazily initialised so the module can be evaluated before instrumentation.ts
-// has injected POSTGRES_URL from Infisical.
-let _sql: ReturnType<typeof neon> | null = null;
-
-/**
- * Returns a configured SQL client instance.
- * Lazily initialises the client on first call.
- *
- * @returns Neon SQL client
- * @throws {Error} If POSTGRES_URL environment variable is missing
- */
-function getSql(): ReturnType<typeof neon> {
-  if (!_sql) {
-    const url = env.databaseUrl;
-    if (!url) throw new Error("Database connection URL is not configured. Please set POSTGRES_URL or DATABASE_URL.");
-    _sql = neon(url);
-  }
-  return _sql;
-}
-
-let _knowledgeBaseSchemaReady: Promise<void> | null = null;
-let _mediaItemsSchemaReady: Promise<void> | null = null;
-let _personalAccessSchemaReady: Promise<void> | null = null;
+let _schemaReady: Promise<void> | null = null;
 
 /**
  * Maps a knowledge base database row into the UI shape.
@@ -136,130 +64,84 @@ function rowToKnowledgeBase(row: KnowledgeBaseRow): KnowledgeBase {
 }
 
 async function getOrCreateDefaultKnowledgeBase(): Promise<KnowledgeBase> {
-  const existing = await getSql()`
+  const existing = await sql<KnowledgeBaseRow>`
     SELECT id, name, slug, created_at
     FROM knowledge_bases
     WHERE slug = ${DEFAULT_KNOWLEDGE_BASE_SLUG}
     LIMIT 1
-  ` as KnowledgeBaseRow[];
+  `;
 
   if (existing.length > 0) {
     return rowToKnowledgeBase(existing[0]);
   }
 
-  const rows = await getSql()`
-    INSERT INTO knowledge_bases (id, name, slug)
-    VALUES (${randomUUID()}, ${DEFAULT_KNOWLEDGE_BASE_NAME}, ${DEFAULT_KNOWLEDGE_BASE_SLUG})
+  const now = new Date().toISOString();
+  const rows = await sql<KnowledgeBaseRow>`
+    INSERT INTO knowledge_bases (id, name, slug, created_at, updated_at)
+    VALUES (${randomUUID()}, ${DEFAULT_KNOWLEDGE_BASE_NAME}, ${DEFAULT_KNOWLEDGE_BASE_SLUG}, ${now}, ${now})
     RETURNING id, name, slug, created_at
-  ` as KnowledgeBaseRow[];
+  `;
 
   return rowToKnowledgeBase(rows[0]);
 }
 
 /**
- * Ensures the knowledge_bases table exists and that media_items can reference it.
+ * Ensures all tables exist. Fresh D1 database, so this is just the final
+ * schema shape applied idempotently — no incremental migrations needed
+ * (unlike the old Postgres/Neon schema, which accreted ALTER TABLE steps
+ * over time).
  */
-async function ensureKnowledgeBaseSchema(): Promise<void> {
-  if (!_knowledgeBaseSchemaReady) {
-    _knowledgeBaseSchemaReady = (async () => {
-      await getSql()`
+async function ensureSchema(): Promise<void> {
+  if (!_schemaReady) {
+    _schemaReady = (async () => {
+      await sql`
         CREATE TABLE IF NOT EXISTS knowledge_bases (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           slug TEXT NOT NULL UNIQUE,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
         )
       `;
 
-      await getSql()`
-        ALTER TABLE media_items
-        ADD COLUMN IF NOT EXISTS knowledge_base_id TEXT
+      await sql`
+        CREATE TABLE IF NOT EXISTS media_items (
+          id TEXT PRIMARY KEY,
+          knowledge_base_id TEXT NOT NULL,
+          url TEXT NOT NULL,
+          platform TEXT NOT NULL,
+          video_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          thumbnail_url TEXT,
+          author_name TEXT,
+          transcript_url TEXT,
+          notes_url TEXT,
+          category TEXT,
+          tags TEXT,
+          created_at TEXT NOT NULL,
+          deleted_at TEXT
+        )
       `;
 
-      await getSql()`
-        DO $$
-        DECLARE
-          constraint_name TEXT;
-          index_name TEXT;
-        BEGIN
-          SELECT c.conname
-          INTO constraint_name
-          FROM pg_constraint c
-          JOIN pg_class t ON t.oid = c.conrelid
-          WHERE t.relname = 'media_items'
-            AND c.contype = 'u'
-            AND pg_get_constraintdef(c.oid) = 'UNIQUE (url)';
-
-          IF constraint_name IS NOT NULL THEN
-            EXECUTE format('ALTER TABLE media_items DROP CONSTRAINT %I', constraint_name);
-          END IF;
-
-          SELECT indexname
-          INTO index_name
-          FROM pg_indexes
-          WHERE schemaname = current_schema()
-            AND tablename = 'media_items'
-            AND indexdef LIKE 'CREATE UNIQUE INDEX % ON % (url)%'
-          LIMIT 1;
-
-          IF index_name IS NOT NULL THEN
-            EXECUTE format('DROP INDEX IF EXISTS %I', index_name);
-          END IF;
-        END $$;
-      `;
-
-      const defaultKnowledgeBase = await getOrCreateDefaultKnowledgeBase();
-
-      await getSql()`
-        UPDATE media_items
-        SET knowledge_base_id = ${defaultKnowledgeBase.id}
-        WHERE knowledge_base_id IS NULL
-      `;
-
-      await getSql()`
+      await sql`
         CREATE UNIQUE INDEX IF NOT EXISTS media_items_knowledge_base_url_idx
         ON media_items (knowledge_base_id, url)
       `;
-    })();
-  }
-  return _knowledgeBaseSchemaReady;
-}
 
-/**
- * Ensures the media_items table schema is up to date.
- */
-async function ensureMediaItemsSchema(): Promise<void> {
-  if (!_mediaItemsSchemaReady) {
-    _mediaItemsSchemaReady = (async () => {
-      await ensureKnowledgeBaseSchema();
-      await getSql()`
-        ALTER TABLE media_items
-        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ
-      `;
-    })();
-  }
-  return _mediaItemsSchemaReady;
-}
-
-/**
- * Ensures the personal_access_keys table exists.
- */
-async function ensurePersonalAccessSchema(): Promise<void> {
-  if (!_personalAccessSchemaReady) {
-    _personalAccessSchemaReady = (async () => {
-      await getSql()`
+      await sql`
         CREATE TABLE IF NOT EXISTS personal_access_keys (
           slot TEXT PRIMARY KEY,
           salt TEXT NOT NULL,
           key_hash TEXT NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
         )
       `;
+
+      await getOrCreateDefaultKnowledgeBase();
     })();
   }
-  return _personalAccessSchemaReady;
+  return _schemaReady;
 }
 
 /**
@@ -293,18 +175,18 @@ function rowToItem(r: DbRow): MediaItem {
     transcriptUrl: r.transcript_url,
     notesUrl: r.notes_url,
     category: r.category ?? null,
-    tags: r.tags ?? [],
+    tags: r.tags ? (JSON.parse(r.tags) as string[]) : [],
     createdAt: new Date(r.created_at).toISOString().slice(0, 10),
   };
 }
 
 async function getKnowledgeBaseByIdInternal(id: string): Promise<KnowledgeBase | null> {
-  const rows = await getSql()`
+  const rows = await sql<KnowledgeBaseRow>`
     SELECT id, name, slug, created_at
     FROM knowledge_bases
     WHERE id = ${id}
     LIMIT 1
-  ` as KnowledgeBaseRow[];
+  `;
 
   if (rows.length === 0) {
     return null;
@@ -314,22 +196,22 @@ async function getKnowledgeBaseByIdInternal(id: string): Promise<KnowledgeBase |
 }
 
 export async function dbGetDefaultKnowledgeBase(): Promise<KnowledgeBase> {
-  await ensureKnowledgeBaseSchema();
+  await ensureSchema();
   return getOrCreateDefaultKnowledgeBase();
 }
 
 export async function dbGetKnowledgeBaseById(id: string): Promise<KnowledgeBase | null> {
-  await ensureKnowledgeBaseSchema();
+  await ensureSchema();
   return getKnowledgeBaseByIdInternal(id);
 }
 
 export async function dbGetKnowledgeBases(): Promise<KnowledgeBase[]> {
-  await ensureKnowledgeBaseSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<KnowledgeBaseRow>`
     SELECT id, name, slug, created_at
     FROM knowledge_bases
     ORDER BY created_at ASC
-  ` as KnowledgeBaseRow[];
+  `;
 
   if (rows.length === 0) {
     return [await getOrCreateDefaultKnowledgeBase()];
@@ -339,24 +221,25 @@ export async function dbGetKnowledgeBases(): Promise<KnowledgeBase[]> {
 }
 
 export async function dbCreateKnowledgeBase(name: string): Promise<KnowledgeBase> {
-  await ensureKnowledgeBaseSchema();
+  await ensureSchema();
 
   const normalizedName = normalizeKnowledgeBaseName(name);
-  const existingRows = await getSql()`
+  const existingRows = await sql<{ slug: string }>`
     SELECT slug
     FROM knowledge_bases
-  ` as Array<{ slug: string }>;
+  `;
 
   const slug = generateKnowledgeBaseSlug(
     normalizedName,
     existingRows.map((row) => row.slug),
   );
 
-  const rows = await getSql()`
-    INSERT INTO knowledge_bases (id, name, slug)
-    VALUES (${randomUUID()}, ${normalizedName}, ${slug})
+  const now = new Date().toISOString();
+  const rows = await sql<KnowledgeBaseRow>`
+    INSERT INTO knowledge_bases (id, name, slug, created_at, updated_at)
+    VALUES (${randomUUID()}, ${normalizedName}, ${slug}, ${now}, ${now})
     RETURNING id, name, slug, created_at
-  ` as KnowledgeBaseRow[];
+  `;
 
   return rowToKnowledgeBase(rows[0]);
 }
@@ -367,14 +250,14 @@ export async function dbCreateKnowledgeBase(name: string): Promise<KnowledgeBase
  * @returns Array of media items, sorted by creation date (desc)
  */
 export async function dbGetMediaItems(knowledgeBaseId: string): Promise<MediaItem[]> {
-  await ensureMediaItemsSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<DbRow>`
     SELECT id, knowledge_base_id, url, platform, video_id, title, thumbnail_url, author_name,
            transcript_url, notes_url, category, tags, created_at, deleted_at
     FROM media_items
     WHERE knowledge_base_id = ${knowledgeBaseId} AND deleted_at IS NULL
     ORDER BY created_at DESC
-  ` as DbRow[];
+  `;
   return rows.map(rowToItem);
 }
 
@@ -385,11 +268,11 @@ export async function dbGetMediaItems(knowledgeBaseId: string): Promise<MediaIte
  * @returns The media item if found, otherwise null
  */
 export async function dbGetByUrl(url: string, knowledgeBaseId: string): Promise<MediaItem | null> {
-  await ensureMediaItemsSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<DbRow>`
     SELECT * FROM media_items
     WHERE knowledge_base_id = ${knowledgeBaseId} AND url = ${url} AND deleted_at IS NULL
-  ` as DbRow[];
+  `;
   if (rows.length === 0) return null;
   return rowToItem(rows[0]);
 }
@@ -401,11 +284,11 @@ export async function dbGetByUrl(url: string, knowledgeBaseId: string): Promise<
  * @returns The media item if found, otherwise null
  */
 export async function dbGetById(id: string): Promise<MediaItem | null> {
-  await ensureMediaItemsSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<DbRow>`
     SELECT * FROM media_items
     WHERE id = ${id} AND deleted_at IS NULL
-  ` as DbRow[];
+  `;
   if (rows.length === 0) return null;
   return rowToItem(rows[0]);
 }
@@ -428,22 +311,23 @@ export async function dbUpsertMediaItem(item: {
   transcriptUrl: string | null;
   notesUrl: string | null;
 }): Promise<MediaItem> {
-  await ensureMediaItemsSchema();
-  const rows = await getSql()`
-    INSERT INTO media_items (knowledge_base_id, url, platform, video_id, title, thumbnail_url, author_name, transcript_url, notes_url)
-    VALUES (${item.knowledgeBaseId}, ${item.url}, ${item.platform}, ${item.videoId}, ${item.title},
-            ${item.thumbnailUrl}, ${item.authorName}, ${item.transcriptUrl}, ${item.notesUrl})
+  await ensureSchema();
+  const now = new Date().toISOString();
+  const rows = await sql<DbRow>`
+    INSERT INTO media_items (id, knowledge_base_id, url, platform, video_id, title, thumbnail_url, author_name, transcript_url, notes_url, created_at)
+    VALUES (${randomUUID()}, ${item.knowledgeBaseId}, ${item.url}, ${item.platform}, ${item.videoId}, ${item.title},
+            ${item.thumbnailUrl}, ${item.authorName}, ${item.transcriptUrl}, ${item.notesUrl}, ${now})
     ON CONFLICT (knowledge_base_id, url) DO UPDATE SET
-      platform       = EXCLUDED.platform,
-      video_id       = EXCLUDED.video_id,
-      title          = EXCLUDED.title,
-      thumbnail_url  = EXCLUDED.thumbnail_url,
-      author_name    = EXCLUDED.author_name,
-      transcript_url = EXCLUDED.transcript_url,
-      notes_url      = EXCLUDED.notes_url,
+      platform       = excluded.platform,
+      video_id       = excluded.video_id,
+      title          = excluded.title,
+      thumbnail_url  = excluded.thumbnail_url,
+      author_name    = excluded.author_name,
+      transcript_url = excluded.transcript_url,
+      notes_url      = excluded.notes_url,
       deleted_at     = NULL
     RETURNING *
-  ` as DbRow[];
+  `;
   return rowToItem(rows[0]);
 }
 
@@ -461,17 +345,18 @@ export async function dbUpdateCategory(
   tags: string[],
   title?: string
 ): Promise<void> {
-  await ensureMediaItemsSchema();
+  await ensureSchema();
+  const serializedTags = JSON.stringify(tags);
   if (title) {
-    await getSql()`
-      UPDATE media_items 
-      SET category = ${category}, tags = ${tags}, title = ${title} 
+    await sql`
+      UPDATE media_items
+      SET category = ${category}, tags = ${serializedTags}, title = ${title}
       WHERE id = ${id}
     `;
   } else {
-    await getSql()`
-      UPDATE media_items 
-      SET category = ${category}, tags = ${tags} 
+    await sql`
+      UPDATE media_items
+      SET category = ${category}, tags = ${serializedTags}
       WHERE id = ${id}
     `;
   }
@@ -484,13 +369,13 @@ export async function dbUpdateCategory(
  * @returns True if an item was successfully marked as deleted
  */
 export async function dbSoftDeleteMediaItem(id: string): Promise<boolean> {
-  await ensureMediaItemsSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<{ id: string }>`
     UPDATE media_items
-    SET deleted_at = NOW()
+    SET deleted_at = ${new Date().toISOString()}
     WHERE id = ${id} AND deleted_at IS NULL
     RETURNING id
-  ` as Array<{ id: string }>;
+  `;
   return rows.length > 0;
 }
 
@@ -500,11 +385,11 @@ export async function dbSoftDeleteMediaItem(id: string): Promise<boolean> {
  * @returns True if a key exists in the 'primary' slot
  */
 export async function dbHasPersonalAccessKey(): Promise<boolean> {
-  await ensurePersonalAccessSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<{ slot: string }>`
     SELECT slot FROM personal_access_keys
     WHERE slot = 'primary'
-  ` as Array<{ slot: string }>;
+  `;
   return rows.length > 0;
 }
 
@@ -516,14 +401,15 @@ export async function dbHasPersonalAccessKey(): Promise<boolean> {
  * @returns True if the key was successfully created
  */
 export async function dbCreatePersonalAccessKey(key: string): Promise<boolean> {
-  await ensurePersonalAccessSchema();
+  await ensureSchema();
   const exists = await dbHasPersonalAccessKey();
   if (exists) return false;
 
   const { salt, hash } = await hashPersonalAccessKey(key);
-  await getSql()`
-    INSERT INTO personal_access_keys (slot, salt, key_hash)
-    VALUES ('primary', ${salt}, ${hash})
+  const now = new Date().toISOString();
+  await sql`
+    INSERT INTO personal_access_keys (slot, salt, key_hash, created_at, updated_at)
+    VALUES ('primary', ${salt}, ${hash}, ${now}, ${now})
   `;
   return true;
 }
@@ -535,12 +421,12 @@ export async function dbCreatePersonalAccessKey(key: string): Promise<boolean> {
  * @returns True if the key matches the stored hash
  */
 export async function dbVerifyPersonalAccessKey(key: string): Promise<boolean> {
-  await ensurePersonalAccessSchema();
-  const rows = await getSql()`
+  await ensureSchema();
+  const rows = await sql<AccessKeyRow>`
     SELECT salt, key_hash
     FROM personal_access_keys
     WHERE slot = 'primary'
-  ` as AccessKeyRow[];
+  `;
 
   if (rows.length === 0) return false;
 

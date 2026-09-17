@@ -1,2 +1,5 @@
 # Un-ignore src/lib/ which is globally ignored by the root .gitignore
 !src/lib/
+
+# Local SQLite replica for dev:local (see src/lib/d1.ts / env.localD1Path)
+.data/
