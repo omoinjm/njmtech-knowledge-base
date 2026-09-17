@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@infisical/sdk':
+        specifier: ^5.0.2
+        version: 5.0.2
       '@nx/docker':
         specifier: 22.6.5
         version: 22.6.5(nx@22.6.5)
@@ -39,9 +42,6 @@ importers:
 
   apps/media:
     dependencies:
-      '@neondatabase/serverless':
-        specifier: ^1.0.2
-        version: 1.1.0
       '@radix-ui/react-dialog':
         specifier: ^1.1.14
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1714,10 +1714,6 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
-
-  '@neondatabase/serverless@1.1.0':
-    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
-    engines: {node: '>=19.0.0'}
 
   '@next/env@15.5.15':
     resolution: {integrity: sha512-vcmyu5/MyFzN7CdqRHO3uHO44p/QPCZkuTUXroeUmhNP8bL5PHFEhik22JUazt+CDDoD6EpBYRCaS2pISL+/hg==}
@@ -9984,8 +9980,6 @@ snapshots:
       '@emnapi/runtime': 1.9.2
       '@tybys/wasm-util': 0.10.1
     optional: true
-
-  '@neondatabase/serverless@1.1.0': {}
 
   '@next/env@15.5.15': {}
 

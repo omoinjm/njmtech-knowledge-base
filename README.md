@@ -17,7 +17,7 @@ The monorepo is organized using **Nx** and **pnpm workspaces**, consolidating fo
 - **Infisical**: Centralized secret management for all four applications.
 - **Cloudflare S3 / R2**: The primary storage for raw transcripts and processed documents.
 - **Cloudflare Containers**: Runtime for `yt-transcribe` and `blob-cron`, scheduled and proxied by Workers.
-- **Neon (Postgres)**: The database for media metadata.
+- **Cloudflare D1**: The database for media metadata.
 
 ---
 

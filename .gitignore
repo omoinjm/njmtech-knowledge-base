@@ -129,3 +129,6 @@ vendor/
 .env.local
 .env.*.local
 environments/
+
+# --- One-off ops scripts holding real secrets once filled in ---
+scripts/run-migration.sh
