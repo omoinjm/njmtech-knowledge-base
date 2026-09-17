@@ -103,7 +103,13 @@ async function resolveMediaItem(
   url: string
 ): Promise<Omit<MediaItem, "id" | "createdAt" | "knowledgeBaseId">> {
   const meta = await fetchVideoMeta(url);
-  const blobFiles = await checkBlobFiles(meta.platform, meta.videoId);
+  // Transcript/notes lookup is an optional enrichment (populated by a separate
+  // pipeline) — a failure here (blob API down, misconfigured, etc.) must not
+  // block saving the link itself.
+  const blobFiles = await checkBlobFiles(meta.platform, meta.videoId).catch((err) => {
+    console.error("[resolveMediaItem] checkBlobFiles failed, continuing without transcript/notes:", err);
+    return { transcriptUrl: null, notesUrl: null };
+  });
 
   return {
     url,
@@ -180,7 +186,10 @@ export async function addMediaItem(
     return { success: true, data: { item } };
   } catch (err) {
     console.error("[addMediaItem]", err);
-    return { success: false, error: "Failed to add media item" };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add media item",
+    };
   }
 }
 
@@ -212,7 +221,10 @@ export async function preparePublicMediaItem(
     };
   } catch (err) {
     console.error("[preparePublicMediaItem]", err);
-    return { success: false, error: "Failed to prepare media item" };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to prepare media item",
+    };
   }
 }
 
