@@ -14,9 +14,9 @@ def get_upload_blob_api_url():
 def get_upload_blob_api_token():
     return os.getenv("UPLOAD_BLOB_API_TOKEN")
 
-# AI Model Configuration (Ollama)
-OLLAMA_MODEL_ID = os.getenv("OLLAMA_MODEL_ID", "llama3.2")
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+# AI Model Configuration (Cloudflare Workers AI)
+CLOUDFLARE_AI_MODEL = os.getenv("CLOUDFLARE_AI_MODEL", "@cf/meta/llama-3.3-70b-instruct-fp8-fast")
+CLOUDFLARE_AI_API_TOKEN = os.getenv("CLOUDFLARE_AI_API_TOKEN")
 
 # Scanner Configuration
 ROOT_SCAN_FOLDER = os.getenv("ROOT_SCAN_FOLDER", "njmtech-blob-api")
@@ -35,6 +35,7 @@ def validate_config():
         "CLOUDFLARE_ACCOUNT_ID": os.getenv("CLOUDFLARE_ACCOUNT_ID"),
         "CLOUDFLARE_D1_DATABASE_ID": os.getenv("CLOUDFLARE_D1_DATABASE_ID"),
         "CLOUDFLARE_D1_API_TOKEN": os.getenv("CLOUDFLARE_D1_API_TOKEN"),
+        "CLOUDFLARE_AI_API_TOKEN": os.getenv("CLOUDFLARE_AI_API_TOKEN"),
     }
     missing_vars = [var for var, value in required_vars.items() if not value]
     if missing_vars:

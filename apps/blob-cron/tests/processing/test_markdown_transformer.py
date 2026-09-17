@@ -1,7 +1,6 @@
 import pytest
 from njm_blob_cron.processing.markdown_transformer import MarkdownTransformer
 from njm_blob_cron.blob_storage.base import BlobStorage
-import ollama
 import os
 
 class MockBlobStorage(BlobStorage):

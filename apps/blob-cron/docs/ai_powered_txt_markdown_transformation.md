@@ -1,5 +1,13 @@
 # AI-Powered TXT → Markdown Transformation
 
+> **Superseded**: this document describes an Ollama/Agno-based design. The
+> actual implementation (`src/njm_blob_cron/processing/markdown_transformer.py`)
+> now calls Cloudflare Workers AI's REST API directly (no Ollama, no Agno) —
+> see that file and `CLOUDFLARE_AI_API_TOKEN`/`CLOUDFLARE_AI_MODEL` in
+> `config.py` for the current approach. Kept here for historical context on
+> the surrounding directory-scanning design (sections 1, 3+), which is
+> still accurate.
+
 This document defines the implementation details for **(do stuff)** — the processing step executed when a directory contains **exactly one `.txt` file** and **no `.md` files**.
 
 The responsibility of this step is to:
