@@ -18,8 +18,19 @@ export interface BlobLookupResult {
   notesUrl: string | null;
 }
 
+/**
+ * UPLOAD_BLOB_API_URL is a shared Infisical secret also consumed by
+ * blob-cron/yt-transcribe, which expect the full upload path (e.g.
+ * `.../api/v1/blob/upload`). This app appends its own lookup paths, so it
+ * only wants the origin — extract it rather than assuming the configured
+ * value is bare.
+ */
 function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url.replace(/\/+$/, "");
+  }
 }
 
 async function fetchBlobGroups(token: string): Promise<BlobGroup[]> {
