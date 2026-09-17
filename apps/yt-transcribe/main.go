@@ -29,6 +29,14 @@ const (
 	COOKIES_BROWSER_FLAG = "cookies-from-browser"
 )
 
+// d1CredsFromEnv reads the Cloudflare D1 credentials directly from the
+// process environment, mirroring how the debug endpoints previously read
+// POSTGRES_URL (Infisical already injects these into the environment before
+// this binary starts, when enabled).
+func d1CredsFromEnv() (accountID, databaseID, apiToken string) {
+	return os.Getenv("CLOUDFLARE_ACCOUNT_ID"), os.Getenv("CLOUDFLARE_D1_DATABASE_ID"), os.Getenv("CLOUDFLARE_D1_API_TOKEN")
+}
+
 func retryStatePath() string {
 	if path := os.Getenv("YT_TRANSCRIBE_RETRY_STATE_FILE"); path != "" {
 		return path
@@ -168,7 +176,8 @@ func runServer(port string) {
 		w.Header().Set("Content-Type", "application/json")
 		keys := []string{
 			"WHISPER_MODEL_PATH", "UPLOAD_BLOB_API_URL", "UPLOAD_BLOB_API_TOKEN",
-			"POSTGRES_URL", "INFISICAL_ENABLED", "PORT",
+			"CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_D1_DATABASE_ID", "CLOUDFLARE_D1_API_TOKEN",
+			"INFISICAL_ENABLED", "PORT",
 		}
 		result := map[string]interface{}{}
 		for _, k := range keys {
@@ -179,16 +188,16 @@ func runServer(port string) {
 
 	mux.HandleFunc("/debug/db", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		postgresURL := os.Getenv("POSTGRES_URL")
-		result := map[string]interface{}{"postgres_url_set": postgresURL != ""}
-		if postgresURL == "" {
+		accountID, databaseID, apiToken := d1CredsFromEnv()
+		result := map[string]interface{}{"d1_configured": accountID != "" && databaseID != "" && apiToken != ""}
+		if accountID == "" || databaseID == "" || apiToken == "" {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			result["error"] = "POSTGRES_URL not set"
+			result["error"] = "CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN not set"
 			_ = json.NewEncoder(w).Encode(result)
 			return
 		}
 		ctx := r.Context()
-		repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+		repo, err := repository.NewD1MediaItemRepository(ctx, accountID, databaseID, apiToken)
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			result["error"] = fmt.Sprintf("connect failed: %v", err)
@@ -216,14 +225,14 @@ func runServer(port string) {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "missing required query param: id"})
 			return
 		}
-		postgresURL := os.Getenv("POSTGRES_URL")
-		if postgresURL == "" {
+		accountID, databaseID, apiToken := d1CredsFromEnv()
+		if accountID == "" || databaseID == "" || apiToken == "" {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_ = json.NewEncoder(w).Encode(map[string]string{"error": "POSTGRES_URL not set"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN not set"})
 			return
 		}
 		ctx := r.Context()
-		repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+		repo, err := repository.NewD1MediaItemRepository(ctx, accountID, databaseID, apiToken)
 		if err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("connect failed: %v", err)})
@@ -304,12 +313,11 @@ func runFromDB(ctx context.Context, svc src.TranscriptionService, outputDir stri
 		handleFatalError("Failed to load configuration", err)
 	}
 
-	postgresURL := cfg.PostgresURL
-	if postgresURL == "" {
-		handleFatalError("POSTGRES_URL not set (required for -db mode)", nil)
+	if cfg.CloudflareAccountID == "" || cfg.CloudflareD1DatabaseID == "" || cfg.CloudflareD1APIToken == "" {
+		handleFatalError("CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN not set (required for -db mode)", nil)
 	}
 
-	repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+	repo, err := repository.NewD1MediaItemRepository(ctx, cfg.CloudflareAccountID, cfg.CloudflareD1DatabaseID, cfg.CloudflareD1APIToken)
 	if err != nil {
 		handleFatalError("Failed to connect to database", err)
 	}
@@ -391,12 +399,11 @@ func runReprocessAll(ctx context.Context, svc src.TranscriptionService, outputDi
 		handleFatalError("Failed to load configuration", err)
 	}
 
-	postgresURL := cfg.PostgresURL
-	if postgresURL == "" {
-		handleFatalError("POSTGRES_URL not set (required for -reprocess-all mode)", nil)
+	if cfg.CloudflareAccountID == "" || cfg.CloudflareD1DatabaseID == "" || cfg.CloudflareD1APIToken == "" {
+		handleFatalError("CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN not set (required for -reprocess-all mode)", nil)
 	}
 
-	repo, err := repository.NewPostgresMediaItemRepository(ctx, postgresURL)
+	repo, err := repository.NewD1MediaItemRepository(ctx, cfg.CloudflareAccountID, cfg.CloudflareD1DatabaseID, cfg.CloudflareD1APIToken)
 	if err != nil {
 		handleFatalError("Failed to connect to database", err)
 	}

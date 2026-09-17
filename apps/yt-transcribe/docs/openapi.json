@@ -123,7 +123,13 @@
           "UPLOAD_BLOB_API_TOKEN": {
             "type": "boolean"
           },
-          "POSTGRES_URL": {
+          "CLOUDFLARE_ACCOUNT_ID": {
+            "type": "boolean"
+          },
+          "CLOUDFLARE_D1_DATABASE_ID": {
+            "type": "boolean"
+          },
+          "CLOUDFLARE_D1_API_TOKEN": {
             "type": "boolean"
           },
           "PORT": {
@@ -140,7 +146,7 @@
           "ok": {
             "type": "boolean"
           },
-          "postgres_url_set": {
+          "d1_configured": {
             "type": "boolean"
           },
           "media_items_count": {
@@ -368,7 +374,7 @@
     "/admin/test-db": {
       "get": {
         "summary": "Test database connectivity",
-        "description": "Starts the API container, connects to Postgres, and returns the row count of `media_items`.",
+        "description": "Starts the API container, connects to Cloudflare D1, and returns the row count of `media_items`.",
         "operationId": "testDb",
         "security": [
           {
@@ -449,7 +455,7 @@
     "/admin/retry-state": {
       "get": {
         "summary": "Get retry state for item",
-        "description": "Starts the API container and returns retry metadata from Postgres for a specific media item id.",
+        "description": "Starts the API container and returns retry metadata from Cloudflare D1 for a specific media item id.",
         "operationId": "getRetryState",
         "security": [
           {

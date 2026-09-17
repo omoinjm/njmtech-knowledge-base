@@ -26,7 +26,9 @@ type Config struct {
 	WhisperExtraArgs        string
 	UploadBlobAPIURL        string
 	UploadBlobAPIToken      string
-	PostgresURL             string
+	CloudflareAccountID     string
+	CloudflareD1DatabaseID  string
+	CloudflareD1APIToken    string
 	YTDLPCookiesFile        string
 	YTDLPCookiesFromBrowser string
 }
@@ -113,16 +115,16 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 	}
 	logSecretLoaded("UPLOAD_BLOB_API_TOKEN")
 
-	// POSTGRES_URL is optional (only needed for -db mode)
-	postgresURL, err := secrets.GetSecret(ctx, "POSTGRES_URL", "POSTGRES_URL", infisicalProjectID, infisicalEnvironment)
-	if err != nil {
-		// If POSTGRES_URL is not found and Infisical is not enabled, return empty string (optional)
-		postgresURL = ""
-		log.Println("POSTGRES_URL: not set (optional)")
-	} else if postgresURL != "" {
-		logSecretLoaded("POSTGRES_URL")
+	// CLOUDFLARE_* D1 credentials are optional (only needed for -db / -reprocess-all mode)
+	cloudflareAccountID, _ := secrets.GetSecret(ctx, "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ACCOUNT_ID", infisicalProjectID, infisicalEnvironment)
+	cloudflareD1DatabaseID, _ := secrets.GetSecret(ctx, "CLOUDFLARE_D1_DATABASE_ID", "CLOUDFLARE_D1_DATABASE_ID", infisicalProjectID, infisicalEnvironment)
+	cloudflareD1APIToken, _ := secrets.GetSecret(ctx, "CLOUDFLARE_D1_API_TOKEN", "CLOUDFLARE_D1_API_TOKEN", infisicalProjectID, infisicalEnvironment)
+	if cloudflareAccountID != "" && cloudflareD1DatabaseID != "" && cloudflareD1APIToken != "" {
+		logSecretLoaded("CLOUDFLARE_ACCOUNT_ID")
+		logSecretLoaded("CLOUDFLARE_D1_DATABASE_ID")
+		logSecretLoaded("CLOUDFLARE_D1_API_TOKEN")
 	} else {
-		log.Println("POSTGRES_URL: not set (optional)")
+		log.Println("CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_D1_API_TOKEN: not set (optional)")
 	}
 
 	// yt-dlp cookie options are optional
@@ -144,7 +146,9 @@ func LoadConfigFromEnv(ctx context.Context) (*Config, error) {
 		WhisperExtraArgs:        whisperExtraArgs,
 		UploadBlobAPIURL:        uploadBlobAPIURL,
 		UploadBlobAPIToken:      uploadBlobAPIToken,
-		PostgresURL:             postgresURL,
+		CloudflareAccountID:     cloudflareAccountID,
+		CloudflareD1DatabaseID:  cloudflareD1DatabaseID,
+		CloudflareD1APIToken:    cloudflareD1APIToken,
 		YTDLPCookiesFile:        ytdlpCookiesFile,
 		YTDLPCookiesFromBrowser: ytdlpCookiesFromBrowser,
 	}, nil

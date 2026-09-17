@@ -21,8 +21,10 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:1143
 # Scanner Configuration
 ROOT_SCAN_FOLDER = os.getenv("ROOT_SCAN_FOLDER", "njmtech-blob-api")
 
-# Database Configuration
-POSTGRES_URL = os.getenv("POSTGRES_URL")
+# Database Configuration (Cloudflare D1)
+CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+CLOUDFLARE_D1_DATABASE_ID = os.getenv("CLOUDFLARE_D1_DATABASE_ID")
+CLOUDFLARE_D1_API_TOKEN = os.getenv("CLOUDFLARE_D1_API_TOKEN")
 
 
 def validate_config():
@@ -30,7 +32,9 @@ def validate_config():
     required_vars = {
         "UPLOAD_BLOB_API_TOKEN": get_upload_blob_api_token(),
         "UPLOAD_BLOB_API_URL": get_upload_blob_api_url(),
-        "POSTGRES_URL": os.getenv("POSTGRES_URL"),
+        "CLOUDFLARE_ACCOUNT_ID": os.getenv("CLOUDFLARE_ACCOUNT_ID"),
+        "CLOUDFLARE_D1_DATABASE_ID": os.getenv("CLOUDFLARE_D1_DATABASE_ID"),
+        "CLOUDFLARE_D1_API_TOKEN": os.getenv("CLOUDFLARE_D1_API_TOKEN"),
     }
     missing_vars = [var for var, value in required_vars.items() if not value]
     if missing_vars:

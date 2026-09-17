@@ -10,7 +10,9 @@ def test_validate_config_missing_vars(monkeypatch):
     monkeypatch.delenv("UPLOAD_BLOB_API_URL", raising=False)
     monkeypatch.delenv("BLOB_API_URL", raising=False)
     monkeypatch.delenv("UPLOAD_BLOB_API_TOKEN", raising=False)
-    monkeypatch.setenv("POSTGRES_URL", "postgres://example")
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "test_account")
+    monkeypatch.setenv("CLOUDFLARE_D1_DATABASE_ID", "test_db_id")
+    monkeypatch.setenv("CLOUDFLARE_D1_API_TOKEN", "test_token")
     with pytest.raises(ValueError, match="Missing required environment variables: UPLOAD_BLOB_API_TOKEN"):
         config.validate_config()
 
@@ -21,7 +23,9 @@ def test_validate_config_all_vars_present(monkeypatch):
     """
     monkeypatch.setenv("UPLOAD_BLOB_API_URL", "https://upload.example.com")
     monkeypatch.setenv("UPLOAD_BLOB_API_TOKEN", "test_token")
-    monkeypatch.setenv("POSTGRES_URL", "postgres://example")
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "test_account")
+    monkeypatch.setenv("CLOUDFLARE_D1_DATABASE_ID", "test_db_id")
+    monkeypatch.setenv("CLOUDFLARE_D1_API_TOKEN", "test_token")
     try:
         config.validate_config()
     except ValueError:

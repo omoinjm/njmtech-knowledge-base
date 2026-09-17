@@ -44,15 +44,15 @@ async def sync_existing_notes():
                 
                 # Update the database if notes_url is NULL for this transcript_url
                 query = """
-                    UPDATE media_items 
-                    SET notes_url = $1 
-                    WHERE transcript_url = $2 AND notes_url IS NULL;
+                    UPDATE media_items
+                    SET notes_url = ?
+                    WHERE transcript_url = ? AND notes_url IS NULL;
                 """
-                
-                # execute() returns a status string like "UPDATE 1" or "UPDATE 0"
-                result = await db_pool.execute(query, md_url, txt_url)
-                
-                if "UPDATE 1" in result:
+
+                # execute() returns the number of rows changed
+                changes = await db_pool.execute(query, md_url, txt_url)
+
+                if changes > 0:
                     logging.info(f"  [UPDATED] Set notes_url for {pathname}")
                     updates_count += 1
                 else:

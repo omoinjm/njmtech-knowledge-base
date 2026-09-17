@@ -105,14 +105,14 @@ class DirectoryScanner:
                 if self.reprocess_all:
                     query = """
                         UPDATE media_items
-                        SET notes_url = $1
-                        WHERE transcript_url = $2;
+                        SET notes_url = ?
+                        WHERE transcript_url = ?;
                     """
                 else:
                     query = """
                         UPDATE media_items
-                        SET notes_url = $1
-                        WHERE transcript_url = $2 AND notes_url IS NULL;
+                        SET notes_url = ?
+                        WHERE transcript_url = ? AND notes_url IS NULL;
                     """
                 await db_pool.execute(query, notes_url, url)
                 print(f"  [SUCCESS] Database updated with notes_url: {notes_url}")

@@ -49,7 +49,7 @@ The application behavior is determined by flags and environment variables.
 
 #### CLI Modes
 - **Single URL:** `./yt-transcribe -url "https://..."`
-- **DB Worker:** `./yt-transcribe -db` (fetches next job from Postgres)
+- **DB Worker:** `./yt-transcribe -db` (fetches next job from Cloudflare D1)
 - **Reprocess:** `./yt-transcribe -reprocess-all` (re-transcribes all DB records)
 
 #### Server Mode
@@ -74,7 +74,7 @@ npm run serve
     - `api/`: HTTP handlers for the API mode.
     - `bootstrap/`: Service initialization and configuration loading.
     - `downloader/`: `yt-dlp` wrapper.
-    - `repository/`: Database interactions (Postgres).
+    - `repository/`: Database interactions (Cloudflare D1, over its REST API).
     - `secrets/`: Secret retrieval logic (Env/Infisical).
     - `transcriber/`: `whisper.cpp` wrapper.
     - `uploader/`: Blob storage API client.
@@ -89,7 +89,7 @@ npm run serve
     - **Permanent Errors:** (e.g., restricted, private, or removed videos) are blocked indefinitely (10-year delay) and reported as `idle` to the job callback to avoid false positive alerts.
     - Classification/backoff logic is handled in `pkg/repository/retry_policy.go`.
 - **Configuration:** Always load configuration via `bootstrap.LoadConfigFromEnv`. It handles both environment variables and Infisical fetching.
-- **State Management:** DB jobs persist retry state in Postgres table `media_item_retry_state` to survive container restarts/placement changes.
+- **State Management:** DB jobs persist retry state in the D1 table `media_item_retry_state` to survive container restarts/placement changes.
 - **Shell Commands:** The project heavily relies on executing external binaries (`yt-dlp`, `ffmpeg`, `whisper-cli`). Ensure these are available in the PATH (handled by Docker and VPS setup script).
 
 ## Environment Variables
@@ -99,7 +99,7 @@ Key variables required in `.env`:
 - `WHISPER_EXTRA_ARGS`: Optional extra flags appended to `whisper-cli`.
 - `UPLOAD_BLOB_API_URL`: Destination for SRT uploads.
 - `UPLOAD_BLOB_API_TOKEN`: Auth for the blob API.
-- `POSTGRES_URL`: Connection string for job management.
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID`, `CLOUDFLARE_D1_API_TOKEN`: Cloudflare D1 credentials for job management.
 - `YT_TRANSCRIBE_ADMIN_TOKEN`: Auth for admin API routes.
 - `DISCORD_WEBHOOK_URL`: Optional Discord webhook for automatic job error notifications.
 
