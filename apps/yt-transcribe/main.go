@@ -175,12 +175,18 @@ func runServer(port string) {
 	mux.HandleFunc("/debug/env", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		keys := []string{
+			"TRANSCRIBER_BACKEND",
 			"WHISPER_MODEL_PATH", "UPLOAD_BLOB_API_URL", "UPLOAD_BLOB_API_TOKEN",
 			"CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_D1_DATABASE_ID", "CLOUDFLARE_D1_API_TOKEN",
+			"CLOUDFLARE_AI_API_TOKEN", "CLOUDFLARE_AI_MODEL",
 			"INFISICAL_ENABLED", "PORT",
 		}
 		result := map[string]interface{}{}
 		for _, k := range keys {
+			if k == "TRANSCRIBER_BACKEND" || k == "CLOUDFLARE_AI_MODEL" {
+				result[k] = os.Getenv(k)
+				continue
+			}
 			result[k] = os.Getenv(k) != ""
 		}
 		_ = json.NewEncoder(w).Encode(result)

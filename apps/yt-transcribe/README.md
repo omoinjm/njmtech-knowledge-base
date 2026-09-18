@@ -1,11 +1,13 @@
 # yt-transcribe
 
-A Go transcription worker and HTTP API that downloads audio from YouTube, Instagram, and other platforms supported by `yt-dlp`, transcribes it using `whisper.cpp`, and uploads the transcript (SRT format with timestamps) through the `upload-blob` API backed by Cloudflare's S3-compatible storage. It can run as a CLI worker, pull the next job from Cloudflare D1, reprocess existing records, or expose an HTTP API.
+A Go transcription worker and HTTP API that downloads audio from YouTube, Instagram, and other platforms supported by `yt-dlp`, transcribes it, and uploads the transcript (SRT format with timestamps) through the `upload-blob` API backed by Cloudflare's S3-compatible storage. It can run as a CLI worker, pull the next job from Cloudflare D1, reprocess existing records, or expose an HTTP API.
 
 ## Features
 
 - Downloads audio via `yt-dlp` and converts to WAV with `ffmpeg`
-- Transcribes using `whisper.cpp` — outputs SRT files with timestamps
+- Transcribes audio to SRT — two swappable backends, selected via `TRANSCRIBER_BACKEND` (see below):
+  - **v1** (default): local `whisper.cpp` binary, bundled in the Docker image
+  - **v2**: Cloudflare Workers AI's hosted Whisper models, chunked via `ffmpeg`
 - Uploads transcripts through the upload-blob API to Cloudflare S3 / R2
 - Three run modes: single URL, DB-driven, and reprocess-all
 - HTTP API mode for Cloudflare Containers and local server use
@@ -23,13 +25,17 @@ cp .env.example .env
 
 | Variable | Required | Description |
 |---|---|---|
-| `WHISPER_MODEL_PATH` | ✅ | Path to the `ggml-*.bin` model file. In Docker, if this points to a stale host path but the same model filename exists under `/whisper.cpp/models`, the app will automatically use the bundled file. |
-| `WHISPER_THREADS` | Optional (default: `1`) | Thread count passed to `whisper-cli` (`-t`) |
-| `WHISPER_EXTRA_ARGS` | Optional | Extra args appended to `whisper-cli` (space-delimited) |
+| `TRANSCRIBER_BACKEND` | Optional (default: `v1`) | Which transcriber to use: `v1` (local whisper.cpp) or `v2` (Cloudflare Workers AI). Switch at any time by changing this and restarting. |
+| `WHISPER_MODEL_PATH` | ✅ when `TRANSCRIBER_BACKEND=v1` | Path to the `ggml-*.bin` model file. In Docker, if this points to a stale host path but the same model filename exists under `/whisper.cpp/models`, the app will automatically use the bundled file. |
+| `WHISPER_THREADS` | Optional (default: `1`) | Thread count passed to `whisper-cli` (`-t`), `v1` only |
+| `WHISPER_EXTRA_ARGS` | Optional | Extra args appended to `whisper-cli` (space-delimited), `v1` only |
+| `CLOUDFLARE_AI_API_TOKEN` | ✅ when `TRANSCRIBER_BACKEND=v2` | Cloudflare API token scoped to Workers AI |
+| `CLOUDFLARE_AI_MODEL` | Optional (default: `@cf/openai/whisper-large-v3-turbo`) | Workers AI Whisper model to call, `v2` only |
+| `CLOUDFLARE_AI_CHUNK_SECONDS` | Optional (default: `300`) | Length of each audio chunk sent to Workers AI, `v2` only. Workers AI has memory/execution-time limits on a single request, so long audio is split with `ffmpeg` before transcribing and the resulting SRT cues are re-offset and stitched back together. |
 | `UPLOAD_BLOB_API_URL` | ✅ | Upload endpoint for the upload-blob API |
 | `UPLOAD_BLOB_API_TOKEN` | ✅ | Auth token for the upload-blob API |
 | `PORT` | Cloudflare container / local API only | Port for HTTP server mode |
-| `CLOUDFLARE_ACCOUNT_ID` | `-db` / `-reprocess-all` only | Cloudflare account ID that owns the D1 database |
+| `CLOUDFLARE_ACCOUNT_ID` | `-db` / `-reprocess-all` / `TRANSCRIBER_BACKEND=v2` | Cloudflare account ID that owns the D1 database (and, for `v2`, the Workers AI account) |
 | `CLOUDFLARE_D1_DATABASE_ID` | `-db` / `-reprocess-all` only | D1 database ID (njmtech-media) |
 | `CLOUDFLARE_D1_API_TOKEN` | `-db` / `-reprocess-all` only | Cloudflare API token scoped to D1 edit |
 | `DISCORD_WEBHOOK_URL` | Optional | Discord webhook URL for job failure alerts (`status=error`) |
